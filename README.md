@@ -17,19 +17,15 @@
 
 ### 界面预览
 
-> 图片使用 GitHub 的 `/raw/` 直链（与 `raw.githubusercontent.com` 等价），在仓库主页 README 中可稳定显示。Fork 后请把路径里的 `WebSafety-2tina/Shell-Manager` 改成你的仓库。
+图片与 `README.md` 同仓库，使用相对路径（克隆到本地后预览 README 也可正常加载）。
 
 **登录页**
 
-<p align="center">
-  <img src="https://github.com/WebSafety-2tina/Shell-Manager/raw/main/png/1.png" alt="Shell Manager 登录页" width="640" />
-</p>
+![Shell Manager 登录页](./png/1.png)
 
 **控制台首页（仪表盘）**
 
-<p align="center">
-  <img src="https://github.com/WebSafety-2tina/Shell-Manager/raw/main/png/2.png" alt="Shell Manager 控制台首页" width="640" />
-</p>
+![Shell Manager 控制台首页](./png/2.png)
 
 ---
 
