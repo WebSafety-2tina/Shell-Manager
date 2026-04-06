@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Shell Manager{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <a href="#main-content" class="skip-link">跳到主内容</a>
+    <div class="app-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="sidebar-logo-icon" aria-hidden="true">
+                        <span class="icon icon-terminal logo-mark"></span>
+                    </div>
+                    <span class="sidebar-logo-text">Shell Manager</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">主导航</div>
+                    <a href="/" class="nav-item {% if active_page == 'index' %}active{% endif %}">
+                        <span class="nav-item-icon icon icon-home" aria-hidden="true"></span>
+                        <span class="nav-item-text">首页</span>
+                    </a>
+                    <a href="/hosts" class="nav-item {% if active_page == 'hosts' %}active{% endif %}">
+                        <span class="nav-item-icon icon icon-hosts" aria-hidden="true"></span>
+                        <span class="nav-item-text">主机管理</span>
+                        <span class="nav-item-badge" id="session-count" style="display: none;">0</span>
+                    </a>
+                    <a href="/ports" class="nav-item {% if active_page == 'ports' %}active{% endif %}">
+                        <span class="nav-item-icon icon icon-ports" aria-hidden="true"></span>
+                        <span class="nav-item-text">端口管理</span>
+                    </a>
+                </div>
+                
+                <div class="nav-section">
+                    <div class="nav-section-title">工具</div>
+                    <a href="/payload" class="nav-item {% if active_page == 'payload' %}active{% endif %}">
+                        <span class="nav-item-icon icon icon-payload" aria-hidden="true"></span>
+                        <span class="nav-item-text">载荷生成</span>
+                    </a>
+                    <a href="/quickconnect" class="nav-item {% if active_page == 'quickconnect' %}active{% endif %}">
+                        <span class="nav-item-icon icon icon-bolt" aria-hidden="true"></span>
+                        <span class="nav-item-text">快速连接</span>
+                    </a>
+                </div>
+                
+                <div class="nav-section">
+                    <div class="nav-section-title">系统</div>
+                    <a href="/settings" class="nav-item {% if active_page == 'settings' %}active{% endif %}">
+                        <span class="nav-item-icon icon icon-settings" aria-hidden="true"></span>
+                        <span class="nav-item-text">设置</span>
+                    </a>
+                    <a href="/help" class="nav-item {% if active_page == 'help' %}active{% endif %}">
+                        <span class="nav-item-icon icon icon-help" aria-hidden="true"></span>
+                        <span class="nav-item-text">帮助文档</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+        
+        <!-- 主内容区 -->
+        <main id="main-content" class="main-content" tabindex="-1">
+            <!-- 顶部栏 -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <h1 class="topbar-title">{% block page_title %}首页{% endblock %}</h1>
+                </div>
+                <div class="topbar-right">
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="refreshData()" aria-label="刷新页面数据">
+                        <span class="icon icon-refresh" aria-hidden="true"></span>
+                        刷新
+                    </button>
+                    <div class="topbar-user" role="group" aria-label="当前用户">
+                        <div class="user-avatar" title="{{ session.get('username', '用户') }}">{{ (session.get('username') or 'U')|first|upper }}</div>
+                        <span class="user-name">{{ session.get('username', '用户') }}</span>
+                        <a href="{{ url_for('logout') }}" class="btn btn-ghost btn-sm topbar-logout" aria-label="退出登录">
+                            <span class="icon icon-logout" aria-hidden="true"></span>
+                            退出
+                        </a>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- 内容区域 -->
+            <div class="content-area">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+    
+    <!-- Toast容器 -->
+    <div class="toast-container" aria-live="polite" aria-relevant="additions"></div>
+    
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    
+    <script>
+        // 更新会话计数
+        function updateSessionCount() {
+            api('/api/sessions').then(data => {
+                const count = data.sessions.length;
+                const badge = document.getElementById('session-count');
+                if (count > 0) {
+                    badge.textContent = count;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }).catch(() => {});
+        }
+        
+        // 定时更新
+        setInterval(updateSessionCount, 5000);
+        document.addEventListener('DOMContentLoaded', updateSessionCount);
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

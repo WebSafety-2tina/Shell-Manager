@@ -1,0 +1,12 @@
+Flask==3.0.0
+Flask-SocketIO==5.3.6
+Flask-CORS==4.0.0
+Flask-SQLAlchemy==3.1.1
+PyMySQL==1.1.0
+cryptography==41.0.7
+python-dotenv==1.0.1
+python-engineio==4.8.0
+python-socketio==5.10.0
+Werkzeug==3.0.1
+gevent==23.9.1
+gevent-websocket==0.10.1

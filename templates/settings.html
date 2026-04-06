@@ -1,0 +1,661 @@
+{% extends "base.html" %}
+
+{% block title %}设置 - Shell Manager{% endblock %}
+
+{% block active_page %}settings{% endblock %}
+
+{% block page_title %}系统设置{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 250px 1fr; gap: 20px;">
+    <!-- 设置导航 -->
+    <div class="card" style="padding: 0;">
+        <div style="padding: 16px; border-bottom: 1px solid var(--border-subtle);">
+            <h3 style="font-size: 14px; font-weight: 600; color: var(--text-primary);">设置分类</h3>
+        </div>
+        <div style="padding: 8px;">
+            <div class="settings-nav-item active" onclick="showSettingsSection('general')">
+                <span class="icon icon-cog" aria-hidden="true"></span> 常规设置
+            </div>
+            <div class="settings-nav-item" onclick="showSettingsSection('network')">
+                <span class="icon icon-globe" aria-hidden="true"></span> 网络设置
+            </div>
+            <div class="settings-nav-item" onclick="showSettingsSection('security')">
+                <span class="icon icon-lock" aria-hidden="true"></span> 安全设置
+            </div>
+            <div class="settings-nav-item" onclick="showSettingsSection('terminal')">
+                <span class="icon icon-terminal" aria-hidden="true"></span> 终端设置
+            </div>
+            <div class="settings-nav-item" onclick="showSettingsSection('notification')">
+                <span class="icon icon-bell" aria-hidden="true"></span> 通知设置
+            </div>
+            <div class="settings-nav-item" onclick="showSettingsSection('about')">
+                <span class="icon icon-info" aria-hidden="true"></span> 关于系统
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置内容 -->
+    <div>
+        <!-- 常规设置 -->
+        <div id="settings-general" class="settings-section">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">常规设置</h3>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div class="input-group">
+                        <label class="input-label">服务器端口</label>
+                        <input type="number" class="input" id="server-port" value="5000" min="1" max="65535" style="max-width: 200px;">
+                        <div style="font-size: 12px; color: var(--text-quaternary); margin-top: 4px;">Web管理界面监听端口</div>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">默认Shell端口</label>
+                        <input type="number" class="input" id="default-shell-port" value="4444" min="1" max="65535" style="max-width: 200px;">
+                        <div style="font-size: 12px; color: var(--text-quaternary); margin-top: 4px;">新建监听器时的默认端口</div>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">端口范围</label>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <input type="number" class="input" id="port-range-start" value="4444" min="1" max="65535" style="width: 120px;">
+                            <span style="color: var(--text-tertiary);">至</span>
+                            <input type="number" class="input" id="port-range-end" value="4499" min="1" max="65535" style="width: 120px;">
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-quaternary); margin-top: 4px;">允许使用的端口范围</div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">自动启动监听器</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">系统启动时自动恢复之前的监听器</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="auto-start-listeners">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">保存连接历史</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">记录所有连接的历史信息</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="save-history" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 网络设置 -->
+        <div id="settings-network" class="settings-section" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">网络设置</h3>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div class="input-group">
+                        <label class="input-label">监听地址</label>
+                        <select class="input" id="listen-address" style="max-width: 300px;">
+                            <option value="0.0.0.0">0.0.0.0 (所有接口)</option>
+                            <option value="127.0.0.1">127.0.0.1 (仅本机)</option>
+                        </select>
+                        <div style="font-size: 12px; color: var(--text-quaternary); margin-top: 4px;">Shell监听器绑定的网络接口</div>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">连接超时（秒）</label>
+                        <input type="number" class="input" id="connection-timeout" value="30" min="5" max="300" style="max-width: 200px;">
+                        <div style="font-size: 12px; color: var(--text-quaternary); margin-top: 4px;">无活动连接自动断开时间</div>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">最大连接数</label>
+                        <input type="number" class="input" id="max-connections" value="100" min="1" max="1000" style="max-width: 200px;">
+                        <div style="font-size: 12px; color: var(--text-quaternary); margin-top: 4px;">单个监听器最大连接数</div>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">缓冲区大小（字节）</label>
+                        <input type="number" class="input" id="buffer-size" value="4096" min="1024" max="65536" style="max-width: 200px;">
+                        <div style="font-size: 12px; color: var(--text-quaternary); margin-top: 4px;">数据接收缓冲区大小</div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">TCP Keep-Alive</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">保持长连接活跃状态</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="tcp-keepalive" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">自动重连</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">连接断开后自动尝试重连</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="auto-reconnect">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 安全设置 -->
+        <div id="settings-security" class="settings-section" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">安全设置</h3>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">启用认证</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">访问Web界面需要登录</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="enable-auth">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">用户名</label>
+                        <input type="text" class="input" id="auth-username" placeholder="admin" style="max-width: 300px;" disabled>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">密码</label>
+                        <input type="password" class="input" id="auth-password" placeholder="••••••••" style="max-width: 300px;" disabled>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">IP白名单</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">只允许指定IP访问</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="enable-whitelist">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">允许的IP列表（每行一个）</label>
+                        <textarea class="input" id="ip-whitelist" rows="4" placeholder="127.0.0.1&#10;192.168.1.0/24&#10;10.0.0.0/8" style="max-width: 400px; font-family: monospace;" disabled></textarea>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">命令日志</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">记录所有执行的命令</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="enable-cmd-log" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">日志保留天数</label>
+                        <input type="number" class="input" id="log-retention" value="30" min="1" max="365" style="max-width: 200px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 终端设置 -->
+        <div id="settings-terminal" class="settings-section" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">终端设置</h3>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div class="input-group">
+                        <label class="input-label">终端字体</label>
+                        <select class="input" id="terminal-font" style="max-width: 300px;">
+                            <option value="SF Mono">SF Mono</option>
+                            <option value="Monaco">Monaco</option>
+                            <option value="Cascadia Code">Cascadia Code</option>
+                            <option value="Fira Code">Fira Code</option>
+                            <option value="Consolas">Consolas</option>
+                            <option value="Courier New">Courier New</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">字体大小</label>
+                        <input type="number" class="input" id="terminal-font-size" value="13" min="10" max="24" style="max-width: 200px;">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">终端主题</label>
+                        <select class="input" id="terminal-theme" style="max-width: 300px;">
+                            <option value="dark">暗色</option>
+                            <option value="light">亮色</option>
+                            <option value="matrix">Matrix</option>
+                            <option value="dracula">Dracula</option>
+                            <option value="monokai">Monokai</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">滚动缓冲区行数</label>
+                        <input type="number" class="input" id="scrollback-lines" value="1000" min="100" max="10000" style="max-width: 200px;">
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">显示时间戳</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">在每行输出前显示时间</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="show-timestamp">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">自动滚动到底部</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">有新输出时自动滚动</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="auto-scroll" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">Bell提示音</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">终端Bell时播放提示音</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="bell-sound">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 通知设置 -->
+        <div id="settings-notification" class="settings-section" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">通知设置</h3>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">新连接通知</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">有新Shell连接时发送通知</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notify-new-connection" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">断开连接通知</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">Shell断开时发送通知</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notify-disconnect" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">系统通知</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">使用浏览器通知</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="browser-notification" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
+                        <div>
+                            <div style="font-weight: 500; color: var(--text-primary);">声音提示</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">播放提示音</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="sound-notification">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="input-group" style="margin-top: 8px;">
+                        <label class="input-label">通知声音</label>
+                        <select class="input" id="notification-sound" style="max-width: 300px;">
+                            <option value="default">默认</option>
+                            <option value="ping">Ping</option>
+                            <option value="bell">Bell</option>
+                            <option value="chime">Chime</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 关于系统 -->
+        <div id="settings-about" class="settings-section" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">关于系统</h3>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div style="text-align: center; padding: 20px;">
+                        <div class="about-logo-mark" aria-hidden="true"><span class="icon icon-terminal"></span></div>
+                        <div style="font-size: 24px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">Shell Manager</div>
+                        <div style="font-size: 14px; color: var(--text-tertiary);">Shell Manager v1.0.0</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; background: var(--bg-deep); border-radius: 8px;">
+                        <div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">后端框架</div>
+                            <div style="font-weight: 500; color: var(--text-primary);">Flask + SocketIO</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">前端框架</div>
+                            <div style="font-weight: 500; color: var(--text-primary);">原生JS + CSS</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">UI风格</div>
+                            <div style="font-weight: 500; color: var(--text-primary);">macOS Vibrancy</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">通信协议</div>
+                            <div style="font-weight: 500; color: var(--text-primary);">WebSocket</div>
+                        </div>
+                    </div>
+                    <div id="system-info-details" style="padding: 16px; background: var(--bg-deep); border-radius: 8px;">
+                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 12px;">系统信息</div>
+                        <div style="color: var(--text-tertiary);">加载中...</div>
+                    </div>
+                    <div style="padding: 16px; background: var(--bg-deep); border-radius: 8px;">
+                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 12px;">开源协议</div>
+                        <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                            本项目采用 MIT 协议开源。仅供授权的安全测试和教育研究使用。
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button type="button" class="btn btn-secondary" onclick="checkUpdate()">
+                            <span class="icon icon-refresh" aria-hidden="true"></span> 检查更新
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="exportSettings()">
+                            <span class="icon icon-save" aria-hidden="true"></span> 导出设置
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="importSettings()">
+                            <span class="icon icon-folder-open" aria-hidden="true"></span> 导入设置
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 保存按钮 -->
+        <div style="margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end;">
+            <button class="btn btn-ghost" onclick="resetSettings()">
+                恢复默认
+            </button>
+            <button type="button" class="btn btn-primary" onclick="saveSettings()">
+                <span class="icon icon-save" aria-hidden="true"></span> 保存设置
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.settings-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color 0.2s ease-out, color 0.2s ease-out;
+    font-size: 13px;
+}
+
+.settings-nav-item .icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    opacity: 0.9;
+}
+
+.settings-nav-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.settings-nav-item.active {
+    background: rgba(10, 132, 255, 0.15);
+    color: var(--color-info);
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 28px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--bg-elevated);
+    transition: 0.3s;
+    border-radius: 28px;
+    border: 1px solid var(--border-subtle);
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 22px;
+    width: 22px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background-color: var(--color-success);
+    border-color: var(--color-success);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(20px);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 显示设置区域
+    function showSettingsSection(section) {
+        // 隐藏所有区域
+        document.querySelectorAll('.settings-section').forEach(el => {
+            el.style.display = 'none';
+        });
+        
+        // 显示选中区域
+        document.getElementById(`settings-${section}`).style.display = 'block';
+        
+        // 更新导航状态
+        document.querySelectorAll('.settings-nav-item').forEach(el => {
+            el.classList.remove('active');
+        });
+        event.currentTarget.classList.add('active');
+    }
+
+    // 加载设置
+    function loadSettings() {
+        const settings = JSON.parse(localStorage.getItem('shellManagerSettings') || '{}');
+        
+        // 常规设置
+        if (settings.serverPort) document.getElementById('server-port').value = settings.serverPort;
+        if (settings.defaultShellPort) document.getElementById('default-shell-port').value = settings.defaultShellPort;
+        if (settings.portRangeStart) document.getElementById('port-range-start').value = settings.portRangeStart;
+        if (settings.portRangeEnd) document.getElementById('port-range-end').value = settings.portRangeEnd;
+        if (settings.autoStartListeners !== undefined) document.getElementById('auto-start-listeners').checked = settings.autoStartListeners;
+        if (settings.saveHistory !== undefined) document.getElementById('save-history').checked = settings.saveHistory;
+        
+        // 网络设置
+        if (settings.listenAddress) document.getElementById('listen-address').value = settings.listenAddress;
+        if (settings.connectionTimeout) document.getElementById('connection-timeout').value = settings.connectionTimeout;
+        if (settings.maxConnections) document.getElementById('max-connections').value = settings.maxConnections;
+        if (settings.bufferSize) document.getElementById('buffer-size').value = settings.bufferSize;
+        if (settings.tcpKeepalive !== undefined) document.getElementById('tcp-keepalive').checked = settings.tcpKeepalive;
+        if (settings.autoReconnect !== undefined) document.getElementById('auto-reconnect').checked = settings.autoReconnect;
+        
+        // 终端设置
+        if (settings.terminalFont) document.getElementById('terminal-font').value = settings.terminalFont;
+        if (settings.terminalFontSize) document.getElementById('terminal-font-size').value = settings.terminalFontSize;
+        if (settings.terminalTheme) document.getElementById('terminal-theme').value = settings.terminalTheme;
+        if (settings.scrollbackLines) document.getElementById('scrollback-lines').value = settings.scrollbackLines;
+        if (settings.showTimestamp !== undefined) document.getElementById('show-timestamp').checked = settings.showTimestamp;
+        if (settings.autoScroll !== undefined) document.getElementById('auto-scroll').checked = settings.autoScroll;
+        if (settings.bellSound !== undefined) document.getElementById('bell-sound').checked = settings.bellSound;
+        
+        // 通知设置
+        if (settings.notifyNewConnection !== undefined) document.getElementById('notify-new-connection').checked = settings.notifyNewConnection;
+        if (settings.notifyDisconnect !== undefined) document.getElementById('notify-disconnect').checked = settings.notifyDisconnect;
+        if (settings.browserNotification !== undefined) document.getElementById('browser-notification').checked = settings.browserNotification;
+        if (settings.soundNotification !== undefined) document.getElementById('sound-notification').checked = settings.soundNotification;
+    }
+
+    // 保存设置
+    function saveSettings() {
+        const settings = {
+            // 常规
+            serverPort: parseInt(document.getElementById('server-port').value),
+            defaultShellPort: parseInt(document.getElementById('default-shell-port').value),
+            portRangeStart: parseInt(document.getElementById('port-range-start').value),
+            portRangeEnd: parseInt(document.getElementById('port-range-end').value),
+            autoStartListeners: document.getElementById('auto-start-listeners').checked,
+            saveHistory: document.getElementById('save-history').checked,
+            
+            // 网络
+            listenAddress: document.getElementById('listen-address').value,
+            connectionTimeout: parseInt(document.getElementById('connection-timeout').value),
+            maxConnections: parseInt(document.getElementById('max-connections').value),
+            bufferSize: parseInt(document.getElementById('buffer-size').value),
+            tcpKeepalive: document.getElementById('tcp-keepalive').checked,
+            autoReconnect: document.getElementById('auto-reconnect').checked,
+            
+            // 终端
+            terminalFont: document.getElementById('terminal-font').value,
+            terminalFontSize: parseInt(document.getElementById('terminal-font-size').value),
+            terminalTheme: document.getElementById('terminal-theme').value,
+            scrollbackLines: parseInt(document.getElementById('scrollback-lines').value),
+            showTimestamp: document.getElementById('show-timestamp').checked,
+            autoScroll: document.getElementById('auto-scroll').checked,
+            bellSound: document.getElementById('bell-sound').checked,
+            
+            // 通知
+            notifyNewConnection: document.getElementById('notify-new-connection').checked,
+            notifyDisconnect: document.getElementById('notify-disconnect').checked,
+            browserNotification: document.getElementById('browser-notification').checked,
+            soundNotification: document.getElementById('sound-notification').checked,
+        };
+        
+        localStorage.setItem('shellManagerSettings', JSON.stringify(settings));
+        showToast('设置已保存', 'success');
+    }
+
+    // 重置设置
+    function resetSettings() {
+        if (confirm('确定要恢复默认设置吗？')) {
+            localStorage.removeItem('shellManagerSettings');
+            location.reload();
+        }
+    }
+
+    // 导出设置
+    function exportSettings() {
+        const settings = localStorage.getItem('shellManagerSettings');
+        if (settings) {
+            const blob = new Blob([settings], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `shell-manager-settings-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('设置已导出', 'success');
+        } else {
+            showToast('没有可导出的设置', 'warning');
+        }
+    }
+
+    // 导入设置
+    function importSettings() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const settings = JSON.parse(event.target.result);
+                        localStorage.setItem('shellManagerSettings', JSON.stringify(settings));
+                        loadSettings();
+                        showToast('设置已导入', 'success');
+                    } catch (err) {
+                        showToast('无效的设置文件', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        };
+        input.click();
+    }
+
+    // 检查更新
+    function checkUpdate() {
+        showToast('当前已是最新版本', 'success');
+    }
+
+    // 加载系统信息
+    async function loadSystemInfo() {
+        try {
+            const data = await api('/api/system_info');
+            const container = document.getElementById('system-info-details');
+            container.innerHTML = `
+                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 12px;">系统信息</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <div style="font-size: 12px; color: var(--text-tertiary);">操作系统</div>
+                        <div style="font-weight: 500; color: var(--text-primary);">${escapeHtml(data.platform)}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; color: var(--text-tertiary);">Python版本</div>
+                        <div style="font-weight: 500; color: var(--text-primary);">${escapeHtml(data.python_version)}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; color: var(--text-tertiary);">服务状态</div>
+                        <div style="font-weight: 500; color: var(--color-success);">运行中</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; color: var(--text-tertiary);">启动时间</div>
+                        <div style="font-weight: 500; color: var(--text-primary);">${new Date().toLocaleString()}</div>
+                    </div>
+                </div>
+            `;
+        } catch (e) {
+            console.error('加载系统信息失败', e);
+        }
+    }
+
+    // 初始化
+    loadSettings();
+    loadSystemInfo();
+</script>
+{% endblock %}

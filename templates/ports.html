@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+
+{% block title %}端口管理 - Shell Manager{% endblock %}
+
+{% block active_page %}ports{% endblock %}
+
+{% block page_title %}端口管理{% endblock %}
+
+{% block content %}
+<!-- 端口检测 -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title">端口检测</h3>
+            <p class="card-subtitle">检测端口是否被占用或可用</p>
+        </div>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: flex-end;">
+        <div class="input-group" style="flex: 1; margin-bottom: 0;">
+            <label class="input-label">端口号</label>
+            <input type="number" class="input" id="check-port" value="4444" min="1" max="65535" placeholder="输入端口号">
+        </div>
+        <button class="btn btn-primary" onclick="checkPort()">
+            <span><span class="icon icon-search"></span></span> 检测端口
+        </button>
+    </div>
+    <div id="port-check-result" style="margin-top: 16px; display: none;">
+        <!-- 检测结果将显示在这里 -->
+    </div>
+</div>
+
+<!-- 防火墙管理 -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title">防火墙端口管理</h3>
+            <p class="card-subtitle">开放或关闭防火墙端口（需要管理员权限）</p>
+        </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="input-group">
+            <label class="input-label">端口号</label>
+            <input type="number" class="input" id="firewall-port" value="4444" min="1" max="65535" placeholder="输入端口号">
+        </div>
+        <div class="input-group">
+            <label class="input-label">协议</label>
+            <select class="input" id="firewall-protocol">
+                <option value="tcp">TCP</option>
+                <option value="udp">UDP</option>
+            </select>
+        </div>
+    </div>
+    <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button class="btn btn-success" onclick="openFirewallPort()">
+            <span><span class="icon icon-unlock"></span></span> 开放端口
+        </button>
+        <button class="btn btn-danger" onclick="closeFirewallPort()">
+            <span><span class="icon icon-lock"></span></span> 关闭端口
+        </button>
+    </div>
+    <div id="firewall-result" style="margin-top: 16px; display: none;">
+        <!-- 操作结果将显示在这里 -->
+    </div>
+</div>
+
+<!-- 常用端口参考 -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title">常用端口参考</h3>
+            <p class="card-subtitle">反弹Shell常用的端口列表</p>
+        </div>
+    </div>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>端口</th>
+                    <th>服务</th>
+                    <th>说明</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-family: monospace; font-weight: 600; color: var(--color-info);">4444</td>
+                    <td>Metasploit</td>
+                    <td>默认反向Shell端口</td>
+                    <td><button class="btn btn-ghost btn-sm" onclick="quickPort(4444)">检测</button></td>
+                </tr>
+                <tr>
+                    <td style="font-family: monospace; font-weight: 600; color: var(--color-info);">4445</td>
+                    <td>反向Shell</td>
+                    <td>常用备选端口</td>
+                    <td><button class="btn btn-ghost btn-sm" onclick="quickPort(4445)">检测</button></td>
+                </tr>
+                <tr>
+                    <td style="font-family: monospace; font-weight: 600; color: var(--color-info);">5555</td>
+                    <td>Android Debug</td>
+                    <td>Android调试桥</td>
+                    <td><button class="btn btn-ghost btn-sm" onclick="quickPort(5555)">检测</button></td>
+                </tr>
+                <tr>
+                    <td style="font-family: monospace; font-weight: 600; color: var(--color-info);">6666</td>
+                    <td>反向Shell</td>
+                    <td>常用备选端口</td>
+                    <td><button class="btn btn-ghost btn-sm" onclick="quickPort(6666)">检测</button></td>
+                </tr>
+                <tr>
+                    <td style="font-family: monospace; font-weight: 600; color: var(--color-info);">7777</td>
+                    <td>反向Shell</td>
+                    <td>常用备选端口</td>
+                    <td><button class="btn btn-ghost btn-sm" onclick="quickPort(7777)">检测</button></td>
+                </tr>
+                <tr>
+                    <td style="font-family: monospace; font-weight: 600; color: var(--color-info);">8888</td>
+                    <td>HTTP代理</td>
+                    <td>HTTP代理/反向Shell</td>
+                    <td><button class="btn btn-ghost btn-sm" onclick="quickPort(8888)">检测</button></td>
+                </tr>
+                <tr>
+                    <td style="font-family: monospace; font-weight: 600; color: var(--color-info);">9999</td>
+                    <td>反向Shell</td>
+                    <td>常用备选端口</td>
+                    <td><button class="btn btn-ghost btn-sm" onclick="quickPort(9999)">检测</button></td>
+                </tr>
+                <tr>
+                    <td style="font-family: monospace; font-weight: 600; color: var(--color-info);">12345</td>
+                    <td>NetBus</td>
+                    <td>经典端口</td>
+                    <td><button class="btn btn-ghost btn-sm" onclick="quickPort(12345)">检测</button></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 端口范围批量操作 -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title">批量端口操作</h3>
+            <p class="card-subtitle">批量检测或开放端口范围</p>
+        </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="input-group">
+            <label class="input-label">起始端口</label>
+            <input type="number" class="input" id="port-range-start" value="4444" min="1" max="65535">
+        </div>
+        <div class="input-group">
+            <label class="input-label">结束端口</label>
+            <input type="number" class="input" id="port-range-end" value="4454" min="1" max="65535">
+        </div>
+    </div>
+    <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button class="btn btn-primary" onclick="batchCheckPorts()">
+            <span><span class="icon icon-search"></span></span> 批量检测
+        </button>
+    </div>
+    <div id="batch-result" style="margin-top: 16px; display: none;">
+        <!-- 批量检测结果将显示在这里 -->
+    </div>
+</div>
+
+<!-- 系统信息 -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title">系统信息</h3>
+            <p class="card-subtitle">当前运行环境</p>
+        </div>
+    </div>
+    <div id="system-info">
+        <div style="color: var(--text-tertiary); padding: 12px;">加载中...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 加载系统信息
+    async function loadSystemInfo() {
+        try {
+            const data = await api('/api/system_info');
+            const container = document.getElementById('system-info');
+            
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+                    <div>
+                        <div style="color: var(--text-tertiary); font-size: 12px; margin-bottom: 4px;">操作系统</div>
+                        <div style="font-weight: 500; color: var(--text-primary);">${escapeHtml(data.platform)}</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--text-tertiary); font-size: 12px; margin-bottom: 4px;">Python版本</div>
+                        <div style="font-weight: 500; color: var(--text-primary);">${escapeHtml(data.python_version)}</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--text-tertiary); font-size: 12px; margin-bottom: 4px;">服务端口</div>
+                        <div style="font-weight: 500; color: var(--text-primary);">5000</div>
+                    </div>
+                </div>
+            `;
+        } catch (e) {
+            document.getElementById('system-info').innerHTML = '<div style="color: var(--color-danger);">加载系统信息失败</div>';
+        }
+    }
+    
+    // 检测端口
+    async function checkPort() {
+        const port = parseInt(document.getElementById('check-port').value);
+        const resultContainer = document.getElementById('port-check-result');
+        
+        if (!port || port < 1 || port > 65535) {
+            showToast('请输入有效的端口号', 'error');
+            return;
+        }
+        
+        resultContainer.style.display = 'block';
+        resultContainer.innerHTML = '<div style="color: var(--text-tertiary); padding: 12px;">检测中...</div>';
+        
+        try {
+            const data = await api(`/api/check_port/${port}`);
+            
+            if (data.available) {
+                resultContainer.innerHTML = `
+                    <div style="padding: 16px; background: rgba(52, 199, 89, 0.1); border: 1px solid rgba(52, 199, 89, 0.3); border-radius: 8px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 24px;"><span class="icon icon-check"></span></span>
+                            <div>
+                                <div style="font-weight: 600; color: var(--color-success);">端口 ${port} 可用</div>
+                                <div style="color: var(--text-tertiary); font-size: 13px;">该端口未被占用，可以启动监听</div>
+                            </div>
+                        </div>
+                        <button class="btn btn-success btn-sm" style="margin-top: 12px;" onclick="startListenerFromPort(${port})">
+                            启动监听
+                        </button>
+                    </div>
+                `;
+            } else {
+                resultContainer.innerHTML = `
+                    <div style="padding: 16px; background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.3); border-radius: 8px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 24px;"><span class="icon icon-cross"></span></span>
+                            <div>
+                                <div style="font-weight: 600; color: var(--color-danger);">端口 ${port} 已被占用</div>
+                                <div style="color: var(--text-tertiary); font-size: 13px;">请选择其他端口或检查是否有进程在使用该端口</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        } catch (e) {
+            resultContainer.innerHTML = `<div style="color: var(--color-danger); padding: 12px;">检测失败: ${escapeHtml(e.message)}</div>`;
+        }
+    }
+    
+    // 从端口检测启动监听
+    function startListenerFromPort(port) {
+        socket.emit('start_listener', { port: port });
+        showToast(`正在启动端口 ${port} 的监听...`, 'info');
+    }
+    
+    // 快速检测端口
+    function quickPort(port) {
+        document.getElementById('check-port').value = port;
+        checkPort();
+    }
+    
+    // 开放防火墙端口
+    async function openFirewallPort() {
+        const port = parseInt(document.getElementById('firewall-port').value);
+        const protocol = document.getElementById('firewall-protocol').value;
+        const resultContainer = document.getElementById('firewall-result');
+        
+        if (!port || port < 1 || port > 65535) {
+            showToast('请输入有效的端口号', 'error');
+            return;
+        }
+        
+        resultContainer.style.display = 'block';
+        resultContainer.innerHTML = '<div style="color: var(--text-tertiary); padding: 12px;">处理中...</div>';
+        
+        try {
+            const data = await api('/api/firewall/open', {
+                method: 'POST',
+                body: { port, protocol }
+            });
+            
+            if (data.success) {
+                resultContainer.innerHTML = `
+                    <div style="padding: 16px; background: rgba(52, 199, 89, 0.1); border: 1px solid rgba(52, 199, 89, 0.3); border-radius: 8px;">
+                        <div style="font-weight: 600; color: var(--color-success);"><span class="icon icon-check"></span> ${escapeHtml(data.message)}</div>
+                    </div>
+                `;
+                showToast(data.message, 'success');
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (e) {
+            resultContainer.innerHTML = `
+                <div style="padding: 16px; background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.3); border-radius: 8px;">
+                    <div style="font-weight: 600; color: var(--color-danger);"><span class="icon icon-cross"></span> 操作失败</div>
+                    <div style="color: var(--text-tertiary); font-size: 13px; margin-top: 4px;">${escapeHtml(e.message)}</div>
+                </div>
+            `;
+            showToast('操作失败: ' + e.message, 'error');
+        }
+    }
+    
+    // 关闭防火墙端口
+    async function closeFirewallPort() {
+        const port = parseInt(document.getElementById('firewall-port').value);
+        const protocol = document.getElementById('firewall-protocol').value;
+        const resultContainer = document.getElementById('firewall-result');
+        
+        if (!port || port < 1 || port > 65535) {
+            showToast('请输入有效的端口号', 'error');
+            return;
+        }
+        
+        resultContainer.style.display = 'block';
+        resultContainer.innerHTML = '<div style="color: var(--text-tertiary); padding: 12px;">处理中...</div>';
+        
+        try {
+            const data = await api('/api/firewall/close', {
+                method: 'POST',
+                body: { port, protocol }
+            });
+            
+            if (data.success) {
+                resultContainer.innerHTML = `
+                    <div style="padding: 16px; background: rgba(52, 199, 89, 0.1); border: 1px solid rgba(52, 199, 89, 0.3); border-radius: 8px;">
+                        <div style="font-weight: 600; color: var(--color-success);"><span class="icon icon-check"></span> ${escapeHtml(data.message)}</div>
+                    </div>
+                `;
+                showToast(data.message, 'success');
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (e) {
+            resultContainer.innerHTML = `
+                <div style="padding: 16px; background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.3); border-radius: 8px;">
+                    <div style="font-weight: 600; color: var(--color-danger);"><span class="icon icon-cross"></span> 操作失败</div>
+                    <div style="color: var(--text-tertiary); font-size: 13px; margin-top: 4px;">${escapeHtml(e.message)}</div>
+                </div>
+            `;
+            showToast('操作失败: ' + e.message, 'error');
+        }
+    }
+    
+    // 批量检测端口
+    async function batchCheckPorts() {
+        const startPort = parseInt(document.getElementById('port-range-start').value);
+        const endPort = parseInt(document.getElementById('port-range-end').value);
+        const resultContainer = document.getElementById('batch-result');
+        
+        if (!startPort || !endPort || startPort > endPort || (endPort - startPort) > 100) {
+            showToast('请输入有效的端口范围（最多100个端口）', 'error');
+            return;
+        }
+        
+        resultContainer.style.display = 'block';
+        resultContainer.innerHTML = '<div style="color: var(--text-tertiary); padding: 12px;">批量检测中，请稍候...</div>';
+        
+        const results = [];
+        for (let port = startPort; port <= endPort; port++) {
+            try {
+                const data = await api(`/api/check_port/${port}`);
+                results.push({ port, available: data.available });
+            } catch (e) {
+                results.push({ port, available: false, error: true });
+            }
+        }
+        
+        const available = results.filter(r => r.available);
+        const unavailable = results.filter(r => !r.available);
+        
+        resultContainer.innerHTML = `
+            <div style="padding: 16px; background: var(--bg-deep); border-radius: 8px; border: 1px solid var(--border-subtle);">
+                <div style="display: flex; gap: 24px; margin-bottom: 16px;">
+                    <div>
+                        <span style="color: var(--color-success); font-weight: 600;"><span class="icon icon-check"></span> 可用: ${available.length}</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--color-danger); font-weight: 600;"><span class="icon icon-cross"></span> 已占用: ${unavailable.length}</span>
+                    </div>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    ${results.map(r => `
+                        <span style="padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 12px; 
+                            background: ${r.available ? 'rgba(52, 199, 89, 0.15)' : 'rgba(255, 69, 58, 0.15)'};
+                            color: ${r.available ? 'var(--color-success)' : 'var(--color-danger)'};">
+                            ${r.port}
+                        </span>
+                    `).join('')}
+                </div>
+                ${available.length > 0 ? `
+                    <button class="btn btn-success btn-sm" style="margin-top: 12px;" onclick="startListenerFromPort(${available[0].port})">
+                        使用端口 ${available[0].port} 启动监听
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    }
+    
+    // 初始化
+    loadSystemInfo();
+</script>
+{% endblock %}

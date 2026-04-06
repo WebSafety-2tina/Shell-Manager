@@ -1,0 +1,678 @@
+{% extends "base.html" %}
+
+{% block title %}文件管理 - Shell Manager{% endblock %}
+
+{% block active_page %}hosts{% endblock %}
+
+{% block page_title %}文件管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <a href="/hosts" class="btn btn-secondary btn-sm">← 返回</a>
+        <h1 class="page-title"><span class="icon icon-folder" aria-hidden="true"></span> 文件管理</h1>
+    </div>
+    <p class="page-subtitle">会话: <span id="sessionId">{{ session_id }}</span></p>
+</div>
+
+<div class="file-manager">
+    <div class="file-toolbar">
+        <div class="file-path">
+            <input type="text" id="currentPath" class="input" value="/" placeholder="输入路径...">
+            <button class="btn btn-primary" onclick="navigatePath()">跳转</button>
+        </div>
+        <div class="file-actions">
+            <a href="/terminal/{{ session_id }}" class="btn btn-secondary"><span class="icon icon-terminal" aria-hidden="true"></span> 终端</a>
+            <button type="button" class="btn btn-secondary" onclick="goParentDir()">上级目录</button>
+            <button type="button" class="btn btn-secondary" onclick="showMkdirModal()"><span class="icon icon-folder" aria-hidden="true"></span> 新建目录</button>
+            <button type="button" class="btn btn-secondary" onclick="refreshFiles()"><span class="icon icon-refresh" aria-hidden="true"></span> 刷新</button>
+            <button type="button" class="btn btn-secondary" onclick="showUploadModal()"><span class="icon icon-upload" aria-hidden="true"></span> 上传</button>
+        </div>
+    </div>
+    
+    <div class="file-list-container">
+        <table class="file-table">
+            <thead>
+                <tr>
+                    <th>类型</th>
+                    <th>名称</th>
+                    <th>大小</th>
+                    <th>权限</th>
+                    <th>修改时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="fileList">
+                <tr class="loading-row">
+                    <td colspan="6">
+                        <div class="loading-state">加载中...</div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 上传模态框 -->
+<div class="modal" id="uploadModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 style="display:flex;align-items:center;gap:10px;"><span class="icon icon-upload" aria-hidden="true"></span> 上传文件</h3>
+            <button class="modal-close" onclick="hideUploadModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>目标路径</label>
+                <input type="text" id="uploadPath" class="input" value="/">
+            </div>
+            <div class="form-group">
+                <label>选择文件</label>
+                <input type="file" id="uploadFile" class="input">
+            </div>
+            <div class="upload-progress" id="uploadProgress" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <span id="progressText">0%</span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="hideUploadModal()">取消</button>
+            <button class="btn btn-primary" onclick="uploadFile()">上传</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="mkdirModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 style="display:flex;align-items:center;gap:10px;"><span class="icon icon-folder" aria-hidden="true"></span> 新建目录</h3>
+            <button type="button" class="modal-close" onclick="hideMkdirModal()" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>在当前路径下创建的文件夹名</label>
+                <input type="text" id="mkdirName" class="input" placeholder="例如: backup">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="hideMkdirModal()">取消</button>
+            <button type="button" class="btn btn-primary" onclick="submitMkdir()">创建</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.file-manager {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+}
+
+.file-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+}
+
+.file-path {
+    display: flex;
+    gap: 10px;
+    flex: 1;
+    max-width: 600px;
+}
+
+.file-path input {
+    flex: 1;
+}
+
+.file-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.file-list-container {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.file-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.file-table th {
+    background: var(--bg-tertiary);
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+}
+
+.file-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.file-table tbody tr {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.file-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.file-name {
+    font-weight: 500;
+}
+
+.file-name.dir {
+    color: var(--color-primary);
+}
+
+.action-buttons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.loading-row td {
+    padding: 60px;
+    text-align: center;
+}
+
+.loading-state {
+    color: var(--text-tertiary);
+}
+
+/* 模态框 */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow: hidden;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.upload-progress {
+    margin-top: 16px;
+}
+
+.progress-bar {
+    height: 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--color-primary);
+    width: 0%;
+    transition: width 0.3s;
+}
+</style>
+
+<script>
+const sessionId = '{{ session_id }}';
+let currentPath = '/';
+let files = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    listFiles(currentPath);
+});
+
+function joinRemotePath(dir, name) {
+    if (!name) return dir;
+    const d0 = (dir || '').trim();
+    const win = d0.includes('\\') || /^[a-zA-Z]:/.test(d0);
+    const sep = win ? '\\' : '/';
+    if (d0 === '/' || d0 === '\\') {
+        return win ? '\\' + name : '/' + name;
+    }
+    const d = d0.replace(/[/\\]+$/, '');
+    if (!d) {
+        return win ? name : '/' + name;
+    }
+    return d + sep + name;
+}
+
+function goParentDir() {
+    const p = (currentPath || '').trim();
+    if (!p || p === '/' || p === '\\') {
+        showToast('已在根目录', 'info');
+        return;
+    }
+    if (/^[a-zA-Z]:\\?$/.test(p)) {
+        listFiles(p.endsWith('\\') ? p : p + '\\');
+        return;
+    }
+    if (p.includes('\\')) {
+        const norm = p.replace(/[/\\]+$/, '');
+        const i = norm.lastIndexOf('\\');
+        listFiles(i <= 2 && /^[a-zA-Z]:/.test(norm) ? norm.slice(0, 3) : (i > 0 ? norm.slice(0, i) : '\\'));
+        return;
+    }
+    const parts = p.replace(/\/+$/, '').split('/').filter(Boolean);
+    parts.pop();
+    listFiles('/' + parts.join('/') || '/');
+}
+
+async function listFiles(path) {
+    currentPath = path;
+    document.getElementById('currentPath').value = path;
+    const tbody = document.getElementById('fileList');
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="6"><div class="loading-state">加载中…</div></td></tr>';
+    try {
+        const res = await fetch(`/api/session/${sessionId}/list`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path })
+        });
+        if (redirectIfUnauthorized(res)) return;
+        const data = await res.json();
+        if (!data.success) {
+            showListError(data.error || '加载失败');
+            return;
+        }
+        if (data.format === 'json' && Array.isArray(data.items)) {
+            applyJsonListing(data.items);
+            return;
+        }
+        parseTextListing(data.output || '');
+    } catch (e) {
+        showListError(e.message || '网络错误');
+    }
+}
+
+function applyJsonListing(items) {
+    files = items.map(it => ({
+        type: it.dir ? 'dir' : 'file',
+        name: it.name,
+        size: it.dir ? '-' : formatSize(it.size || 0),
+        perms: it.perm || (it.dir ? 'dir' : '-'),
+        modified: it.mtime ? new Date(it.mtime * 1000).toLocaleString('zh-CN') : '-'
+    }));
+    renderFiles();
+}
+
+function parseTextListing(output) {
+    if (!output || /cannot access|No such file|系统找不到|找不到文件/i.test(output)) {
+        showListError('无法访问此目录');
+        return;
+    }
+    const unix = parseUnixLs(output);
+    if (unix.length) {
+        files = unix;
+        renderFiles();
+        return;
+    }
+    const win = parseWindowsDir(output);
+    if (win.length) {
+        files = win;
+        renderFiles();
+        return;
+    }
+    showListError('无法解析目录列表（可安装 Python 以使用结构化列目录）');
+}
+
+function parseUnixLs(output) {
+    const lines = output.split('\n').filter(l => l.trim());
+    const items = [];
+    for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(/\s+/);
+        if (parts.length < 9) continue;
+        const perms = parts[0];
+        const size = parts[4];
+        const month = parts[5];
+        const day = parts[6];
+        const time = parts[7];
+        const name = parts.slice(8).join(' ');
+        if (name === '.' || name === '..') continue;
+        const isDir = perms.startsWith('d') || perms.startsWith('l');
+        items.push({
+            type: isDir ? 'dir' : 'file',
+            name,
+            size: isDir ? '-' : formatSize(parseInt(size, 10) || 0),
+            perms,
+            modified: `${month} ${day} ${time}`
+        });
+    }
+    return items;
+}
+
+function parseWindowsDir(text) {
+    const items = [];
+    for (const line of text.split(/\r?\n/)) {
+        const t = line.trim();
+        if (!t || /^Volume in drive/i.test(t) || /^Directory of/i.test(t) || /^(\d+ )?File\(s\)/i.test(t) || /^(\d+ )?Dir\(s\)/i.test(t)) continue;
+        if (t.includes('<DIR>')) {
+            const rest = t.split('<DIR>').pop().trim();
+            if (rest && rest !== '.' && rest !== '..') {
+                items.push({ type: 'dir', name: rest, size: '-', perms: 'dir', modified: '-' });
+            }
+            continue;
+        }
+        const m = t.match(/^(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}\s+[AP]M)\s+([\d,]+)\s+(.+)$/i);
+        if (m) {
+            const name = m[4].trim();
+            if (name && name !== '.' && name !== '..') {
+                const sz = parseInt(m[3].replace(/,/g, ''), 10);
+                items.push({ type: 'file', name, size: formatSize(sz), perms: '-', modified: `${m[1]} ${m[2]}` });
+            }
+        }
+    }
+    return items;
+}
+
+function showListError(msg) {
+    document.getElementById('fileList').innerHTML =
+        `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-tertiary)">${escapeHtml(msg)}</td></tr>`;
+}
+
+function formatSize(bytes) {
+    if (bytes === 0) return '0 B';
+    if (isNaN(bytes)) return '-';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let i = 0;
+    let b = bytes;
+    while (b >= 1024 && i < units.length - 1) {
+        b /= 1024;
+        i++;
+    }
+    return `${b.toFixed(i ? 1 : 0)} ${units[i]}`;
+}
+
+function renderFiles() {
+    const tbody = document.getElementById('fileList');
+    if (files.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-tertiary)">空目录</td></tr>';
+        tbody.onclick = null;
+        return;
+    }
+    files.sort((a, b) => {
+        if (a.type === 'dir' && b.type !== 'dir') return -1;
+        if (a.type !== 'dir' && b.type === 'dir') return 1;
+        return a.name.localeCompare(b.name);
+    });
+    tbody.innerHTML = files.map((f, idx) => `
+        <tr class="file-row" data-idx="${idx}" data-is-dir="${f.type === 'dir'}">
+            <td><span class="file-icon" aria-hidden="true"><span class="icon ${f.type === 'dir' ? 'icon-folder' : 'icon-file'}"></span></span></td>
+            <td><span class="file-name ${f.type === 'dir' ? 'dir' : ''}">${escapeHtml(f.name)}</span></td>
+            <td>${f.size}</td>
+            <td><code>${escapeHtml(f.perms)}</code></td>
+            <td>${escapeHtml(f.modified)}</td>
+            <td>
+                <div class="action-buttons" onclick="event.stopPropagation()">
+                    ${f.type === 'file' ? `<button type="button" class="btn btn-xs btn-primary" data-act="dl" data-idx="${idx}">下载</button>` : ''}
+                    <button type="button" class="btn btn-xs btn-danger" data-act="del" data-idx="${idx}">${f.type === 'dir' ? '删空目录' : '删除'}</button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+
+    tbody.onclick = (e) => {
+        const actBtn = e.target.closest('button[data-act]');
+        if (actBtn) {
+            const f = files[+actBtn.dataset.idx];
+            if (!f) return;
+            if (actBtn.dataset.act === 'dl') downloadFile(f.name);
+            if (actBtn.dataset.act === 'del') deleteRemoteEntry(f);
+            return;
+        }
+        const tr = e.target.closest('tr.file-row');
+        if (!tr) return;
+        const f = files[+tr.dataset.idx];
+        if (f && f.type === 'dir') enterDir(f.name);
+    };
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text == null ? '' : String(text);
+    return div.innerHTML;
+}
+
+function enterDir(name) {
+    listFiles(joinRemotePath(currentPath, name));
+}
+
+function navigatePath() {
+    const path = document.getElementById('currentPath').value.trim();
+    if (path) listFiles(path);
+}
+
+function refreshFiles() {
+    listFiles(currentPath);
+}
+
+function base64ToBlob(b64) {
+    const bin = atob(b64.replace(/\s/g, ''));
+    const u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return new Blob([u8]);
+}
+
+async function downloadFile(filename) {
+    const filepath = joinRemotePath(currentPath, filename);
+    showToast('正在下载…', 'info');
+    try {
+        const res = await fetch(`/api/session/${sessionId}/download`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: filepath })
+        });
+        if (redirectIfUnauthorized(res)) return;
+        const data = await res.json();
+        if (data.success) {
+            const blob = base64ToBlob(data.data);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = data.filename || filename;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('下载已开始', 'success');
+        } else {
+            showToast(data.error || '下载失败', 'error');
+        }
+    } catch (e) {
+        showToast('下载失败: ' + e.message, 'error');
+    }
+}
+
+async function deleteRemoteEntry(f) {
+    const path = joinRemotePath(currentPath, f.name);
+    const tip = f.type === 'dir' ? '仅可删除空目录，确定继续？' : '确定删除该文件？';
+    if (!confirm(`${tip}\n${f.name}`)) return;
+    try {
+        const res = await fetch(`/api/session/${sessionId}/fs-delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path })
+        });
+        if (redirectIfUnauthorized(res)) return;
+        const data = await res.json();
+        if (data.success) {
+            showToast('已删除', 'success');
+            refreshFiles();
+        } else {
+            showToast(data.error || '删除失败（目录非空或无权访问）', 'error');
+        }
+    } catch (e) {
+        showToast('删除失败', 'error');
+    }
+}
+
+function showUploadModal() {
+    document.getElementById('uploadPath').value = currentPath;
+    document.getElementById('uploadModal').classList.add('active');
+}
+
+function hideUploadModal() {
+    document.getElementById('uploadModal').classList.remove('active');
+    document.getElementById('uploadFile').value = '';
+}
+
+function showMkdirModal() {
+    document.getElementById('mkdirName').value = '';
+    document.getElementById('mkdirModal').classList.add('active');
+}
+
+function hideMkdirModal() {
+    document.getElementById('mkdirModal').classList.remove('active');
+}
+
+async function submitMkdir() {
+    const name = document.getElementById('mkdirName').value.trim();
+    if (!name || /[/\\]/.test(name)) {
+        showToast('请输入合法目录名（不含路径分隔符）', 'error');
+        return;
+    }
+    const path = joinRemotePath(currentPath, name);
+    try {
+        const res = await fetch(`/api/session/${sessionId}/fs-mkdir`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path })
+        });
+        if (redirectIfUnauthorized(res)) return;
+        const data = await res.json();
+        if (data.success) {
+            hideMkdirModal();
+            showToast('目录已创建', 'success');
+            refreshFiles();
+        } else {
+            showToast(data.error || '创建失败', 'error');
+        }
+    } catch (e) {
+        showToast('创建失败', 'error');
+    }
+}
+
+async function uploadFile() {
+    const fileInput = document.getElementById('uploadFile');
+    const pathInput = document.getElementById('uploadPath');
+    if (!fileInput.files.length) {
+        showToast('请选择文件', 'error');
+        return;
+    }
+    const file = fileInput.files[0];
+    const baseDir = pathInput.value.trim() || currentPath;
+    const filepath = joinRemotePath(baseDir.replace(/[/\\]+$/, '') || baseDir, file.name);
+
+    const prog = document.getElementById('uploadProgress');
+    const fill = document.getElementById('progressFill');
+    const ptxt = document.getElementById('progressText');
+    prog.style.display = 'block';
+    fill.style.width = '30%';
+    ptxt.textContent = '读取文件中…';
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const base64 = btoa(new Uint8Array(e.target.result).reduce((d, byte) => d + String.fromCharCode(byte), ''));
+        fill.style.width = '60%';
+        ptxt.textContent = '上传中（分块写入远端）…';
+        try {
+            const res = await fetch(`/api/session/${sessionId}/upload`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: filepath, data: base64 })
+            });
+            if (redirectIfUnauthorized(res)) return;
+            const data = await res.json();
+            fill.style.width = '100%';
+            ptxt.textContent = '完成';
+            if (data.success) {
+                hideUploadModal();
+                prog.style.display = 'none';
+                fill.style.width = '0%';
+                showToast('上传成功', 'success');
+                refreshFiles();
+            } else {
+                showToast(data.error || '上传失败', 'error');
+            }
+        } catch (err) {
+            showToast('上传失败: ' + err.message, 'error');
+        }
+        prog.style.display = 'none';
+        fill.style.width = '0%';
+    };
+    reader.readAsArrayBuffer(file);
+}
+</script>
+{% endblock %}

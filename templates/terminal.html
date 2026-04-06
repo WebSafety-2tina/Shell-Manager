@@ -1,0 +1,463 @@
+{% extends "base.html" %}
+
+{% block title %}终端 - {{ session_id }} - Shell Manager{% endblock %}
+
+{% block active_page %}hosts{% endblock %}
+
+{% block page_title %}终端 - {{ session_id }}{% endblock %}
+
+{% block content %}
+<div class="terminal-page-actions" style="margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+    <a href="/hosts" class="btn btn-ghost btn-sm">← 主机列表</a>
+    <a href="/files/{{ session_id }}" class="btn btn-secondary btn-sm"><span class="icon icon-folder" aria-hidden="true"></span> 文件管理</a>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 320px; gap: 20px;">
+    <!-- 终端 -->
+    <div class="terminal-container" id="terminal">
+        <div class="terminal-header">
+            <div class="terminal-title">
+                <div class="terminal-buttons">
+                    <span class="terminal-btn close"></span>
+                    <span class="terminal-btn minimize"></span>
+                    <span class="terminal-btn maximize"></span>
+                </div>
+                <span id="session-info">连接中...</span>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <span class="status-badge" id="connection-status">
+                    <span class="status-dot"></span>
+                    连接中
+                </span>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="clearTerminalOutput()" title="Ctrl+L">清屏</button>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="copyTerminalOutput()">复制输出</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="closeSession()">断开连接</button>
+            </div>
+        </div>
+        <div class="terminal-output" id="terminal-output" tabindex="0" role="log" aria-label="终端输出">
+            <div class="terminal-line output">连接中 {{ session_id }}...</div>
+        </div>
+        <div class="terminal-input-area">
+            <span class="terminal-prompt" id="prompt">$</span>
+            <input type="text" class="terminal-input" id="terminal-input" placeholder="输入命令..." autocomplete="off" autocapitalize="off" spellcheck="false">
+        </div>
+    </div>
+
+    <!-- 侧边栏 -->
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+        <!-- 会话信息 -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">会话信息</h3>
+            </div>
+            <div id="session-details">
+                <div style="color: var(--text-tertiary); text-align: center; padding: 20px;">
+                    加载中...
+                </div>
+            </div>
+        </div>
+
+        <!-- 系统信息 -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">系统信息</h3>
+                <button class="btn btn-ghost btn-sm" onclick="collectInfo()">刷新</button>
+            </div>
+            <div id="system-info">
+                <div style="color: var(--text-tertiary); text-align: center; padding: 20px;">
+                    收集中...
+                </div>
+            </div>
+        </div>
+
+        <!-- 快捷命令 -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">快捷命令</h3>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                    <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('whoami')">whoami</button>
+                    <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('id')">id</button>
+                    <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('hostname')">hostname</button>
+                    <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('uname -a')">uname -a</button>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('pwd')">pwd</button>
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('ls -la')">ls -la</button>
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('ps aux')">ps aux</button>
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('netstat -tulpn')">netstat</button>
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('ifconfig || ip a')">ifconfig/ip</button>
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('cat /etc/passwd | head -20')">passwd</button>
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('env')">env</button>
+            </div>
+        </div>
+
+        <!-- 提权命令 -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">提权探测</h3>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('sudo -l')">sudo -l</button>
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('find / -perm -4000 2>/dev/null')">SUID文件</button>
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('find / -perm -g=s -type f 2>/dev/null')">SGID文件</button>
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('cat /etc/crontab 2>/dev/null; ls -la /etc/cron* 2>/dev/null')">计划任务</button>
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('capsh --print 2>/dev/null || echo \'capsh not found\'')">Capabilities</button>
+            </div>
+        </div>
+
+        <!-- 内网探测 -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">内网探测</h3>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('ip route')">路由表</button>
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('arp -a')">ARP表</button>
+                <button class="btn btn-secondary btn-sm" onclick="sendQuickCommand('nmap -sn 192.168.1.0/24 2>/dev/null || for i in $(seq 1 254); do ping -c 1 -W 1 192.168.1.$i &>/dev/null && echo \"192.168.1.$i is up\"; done')">主机发现</button>
+            </div>
+        </div>
+
+        <!-- Windows / PowerShell -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Windows / PowerShell</h3>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="sendQuickCommand('whoami')">whoami</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="sendQuickCommand('hostname')">hostname</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="sendQuickCommand('ipconfig')">ipconfig</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="sendQuickCommand('Get-ChildItem')">Get-ChildItem</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="sendQuickCommand('systeminfo')">systeminfo</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="sendQuickCommand('net user')">net user</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 历史记录 -->
+<div class="card" style="margin-top: 16px;">
+    <div class="card-header">
+        <h3 class="card-title">命令历史</h3>
+        <button class="btn btn-ghost btn-sm" onclick="clearHistory()">清空</button>
+    </div>
+    <div id="command-history" style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px;">
+        <div style="color: var(--text-quaternary); padding: 12px;">暂无命令历史</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const sessionId = '{{ session_id }}';
+    let isConnected = false;
+    let commandHistory = [];
+    let historyIndex = -1;
+    let systemInfo = null;
+    
+    const terminalOutput = document.getElementById('terminal-output');
+    const terminalInput = document.getElementById('terminal-input');
+    const promptElement = document.getElementById('prompt');
+    const connectionStatus = document.getElementById('connection-status');
+    const sessionInfo = document.getElementById('session-info');
+    
+    // 清理ANSI转义序列
+    function cleanAnsi(text) {
+        return text
+            // 移除所有ANSI转义序列
+            .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
+            .replace(/\x1b\][^\x07]*\x07/g, '')
+            .replace(/\x1b[\[\]()][0-9;]*[a-zA-Z]/g, '')
+            // OSC序列
+            .replace(/\x1b\][^\x1b]*\x1b\\/g, '')
+            // 移除特定的控制序列
+            .replace(/\]0;[^\x07\n]*/g, '')
+            .replace(/\]7;[^\x07\n]*/g, '')
+            // 移除控制字符
+            .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/g, '')
+            .replace(/\x07/g, '')
+            // 处理回车
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '');
+    }
+    
+    // 加载会话信息
+    async function loadSessionInfo() {
+        try {
+            const data = await api(`/api/session/${sessionId}`);
+            if (data.success) {
+                const session = data.session;
+                sessionInfo.textContent = `${session.address} - 端口 ${session.port}`;
+                updateConnectionStatus(session.is_alive);
+                updateSessionDetails(session);
+                
+                if (session.system_info) {
+                    updateSystemInfo(session.system_info);
+                }
+                
+                if (!session.is_alive) {
+                    appendOutput('会话已断开', 'error');
+                }
+            }
+        } catch (e) {
+            appendOutput('无法获取会话信息', 'error');
+            updateConnectionStatus(false);
+        }
+    }
+    
+    // 更新连接状态
+    function updateConnectionStatus(connected) {
+        isConnected = connected;
+        if (connected) {
+            connectionStatus.className = 'status-badge online';
+            connectionStatus.innerHTML = '<span class="status-dot"></span>已连接';
+            terminalInput.disabled = false;
+        } else {
+            connectionStatus.className = 'status-badge offline';
+            connectionStatus.innerHTML = '<span class="status-dot"></span>已断开';
+            terminalInput.disabled = true;
+        }
+    }
+    
+    // 更新会话详情
+    function updateSessionDetails(session) {
+        const container = document.getElementById('session-details');
+        container.innerHTML = `
+            <div style="display: grid; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; padding: 8px; background: var(--bg-deep); border-radius: 6px;">
+                    <span style="color: var(--text-tertiary);">会话ID</span>
+                    <span style="font-family: monospace; color: var(--text-primary);">${session.id}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 8px; background: var(--bg-deep); border-radius: 6px;">
+                    <span style="color: var(--text-tertiary);">地址</span>
+                    <span style="font-family: monospace; color: var(--text-primary);">${session.address}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 8px; background: var(--bg-deep); border-radius: 6px;">
+                    <span style="color: var(--text-tertiary);">端口</span>
+                    <span style="color: var(--text-primary);">${session.port}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 8px; background: var(--bg-deep); border-radius: 6px;">
+                    <span style="color: var(--text-tertiary);">连接时间</span>
+                    <span style="color: var(--text-primary);">${formatTime(session.connected_at)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 8px; background: var(--bg-deep); border-radius: 6px;">
+                    <span style="color: var(--text-tertiary);">持续时间</span>
+                    <span style="color: var(--text-primary);">${formatDuration(session.connected_at)}</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    // 更新系统信息
+    function updateSystemInfo(info) {
+        if (!info) return;
+        systemInfo = info;
+        
+        const container = document.getElementById('system-info');
+        const items = [];
+        
+        if (info.hostname) items.push(['主机名', info.hostname]);
+        if (info.user) items.push(['用户', info.user]);
+        if (info.os_type) items.push(['系统', info.os_type]);
+        if (info.kernel) items.push(['内核', info.kernel]);
+        if (info.architecture) items.push(['架构', info.architecture]);
+        if (info.cpu_info) items.push(['CPU', info.cpu_info]);
+        if (info.cpu_cores) items.push(['核心数', info.cpu_cores]);
+        if (info.memory_total) items.push(['内存', info.memory_total]);
+        if (info.disk_total) items.push(['磁盘', info.disk_total]);
+        if (info.uptime) items.push(['运行时间', info.uptime]);
+        
+        if (items.length === 0) {
+            container.innerHTML = '<div style="color: var(--text-tertiary); text-align: center; padding: 20px;">信息收集中...</div>';
+            return;
+        }
+        
+        container.innerHTML = items.map(([label, value]) => `
+            <div style="display: flex; justify-content: space-between; padding: 8px; background: var(--bg-deep); border-radius: 6px; margin-bottom: 6px;">
+                <span style="color: var(--text-tertiary); font-size: 12px;">${label}</span>
+                <span style="color: var(--text-primary); font-size: 12px; font-family: monospace; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(value)}">${escapeHtml(value)}</span>
+            </div>
+        `).join('');
+    }
+    
+    // 添加输出
+    function appendOutput(text, type = 'output') {
+        // 清理ANSI转义序列
+        const cleanText = cleanAnsi(text);
+        
+        const lines = cleanText.split('\n');
+        lines.forEach(line => {
+            if (line.trim() === '' && lines.length === 1) return;
+            
+            const div = document.createElement('div');
+            div.className = `terminal-line ${type}`;
+            div.textContent = line;
+            terminalOutput.appendChild(div);
+        });
+        
+        // 自动滚动到底部
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+    }
+    
+    // 发送命令
+    function sendCommand(command) {
+        if (!command.trim()) return;
+        if (!isConnected) {
+            appendOutput('错误: 会话已断开', 'error');
+            return;
+        }
+        
+        // 显示命令
+        appendOutput(`$ ${command}`, 'command');
+        
+        // 添加到历史
+        commandHistory.unshift(command);
+        if (commandHistory.length > 100) commandHistory.pop();
+        historyIndex = -1;
+        updateHistoryDisplay();
+        
+        // 发送命令
+        socket.emit('execute_command', {
+            session_id: sessionId,
+            command: command
+        });
+    }
+    
+    // 发送快捷命令
+    function sendQuickCommand(command) {
+        terminalInput.value = command;
+        sendCommand(command);
+        terminalInput.value = '';
+        terminalInput.focus();
+    }
+    
+    // 收集系统信息
+    function collectInfo() {
+        socket.emit('collect_info', { session_id: sessionId });
+        showToast('正在收集系统信息...', 'info');
+    }
+    
+    // 关闭会话
+    function closeSession() {
+        if (confirm('确定要断开此会话吗？')) {
+            socket.emit('close_session', { session_id: sessionId });
+            updateConnectionStatus(false);
+            appendOutput('会话已断开', 'warning');
+        }
+    }
+
+    function clearTerminalOutput() {
+        terminalOutput.innerHTML = '';
+        terminalInput.focus();
+    }
+
+    function copyTerminalOutput() {
+        const lines = Array.from(terminalOutput.querySelectorAll('.terminal-line'))
+            .map(el => el.textContent)
+            .join('\n');
+        if (!lines.trim()) {
+            showToast('暂无输出可复制', 'info');
+            return;
+        }
+        copyToClipboard(lines);
+    }
+    
+    // 更新历史显示
+    function updateHistoryDisplay() {
+        const historyContainer = document.getElementById('command-history');
+        if (commandHistory.length === 0) {
+            historyContainer.innerHTML = '<div style="color: var(--text-quaternary); padding: 12px;">暂无命令历史</div>';
+            return;
+        }
+        
+        historyContainer.innerHTML = commandHistory.slice(0, 50).map((cmd, i) => `
+            <div style="padding: 6px 12px; border-bottom: 1px solid var(--border-subtle); cursor: pointer; display: flex; justify-content: space-between; align-items: center;" 
+                 onclick="sendQuickCommand('${escapeHtml(cmd).replace(/'/g, "\\'")}')"
+                 onmouseover="this.style.background='var(--bg-hover)'"
+                 onmouseout="this.style.background='transparent'">
+                <div>
+                    <span style="color: var(--text-quaternary); margin-right: 8px;">${i + 1}.</span>
+                    <span style="color: var(--color-info);">$</span>
+                    <span style="color: var(--text-secondary);">${escapeHtml(cmd)}</span>
+                </div>
+                <button class="btn btn-ghost btn-sm" style="padding: 2px 6px; font-size: 10px;" onclick="event.stopPropagation(); copyToClipboard('${escapeHtml(cmd).replace(/'/g, "\\'")}')">复制</button>
+            </div>
+        `).join('');
+    }
+    
+    // 清空历史
+    function clearHistory() {
+        commandHistory = [];
+        updateHistoryDisplay();
+        showToast('历史已清空', 'info');
+    }
+    
+    // 监听输入
+    terminalInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            sendCommand(terminalInput.value);
+            terminalInput.value = '';
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (historyIndex < commandHistory.length - 1) {
+                historyIndex++;
+                terminalInput.value = commandHistory[historyIndex];
+            }
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (historyIndex > 0) {
+                historyIndex--;
+                terminalInput.value = commandHistory[historyIndex];
+            } else if (historyIndex === 0) {
+                historyIndex = -1;
+                terminalInput.value = '';
+            }
+        } else if (e.key === 'Tab') {
+            e.preventDefault();
+            // 可以实现自动补全
+        } else if (e.key === 'l' && e.ctrlKey) {
+            e.preventDefault();
+            // 清屏
+            terminalOutput.innerHTML = '';
+        }
+    });
+    
+    // 监听会话输出
+    document.addEventListener('session_output', (e) => {
+        if (e.detail.session_id === sessionId) {
+            const output = e.detail.output;
+            appendOutput(output, 'output');
+        }
+    });
+    
+    // 监听会话断开
+    document.addEventListener('session_disconnected', (e) => {
+        if (e.detail.session_id === sessionId) {
+            updateConnectionStatus(false);
+            appendOutput('连接已断开', 'error');
+        }
+    });
+    
+    // 监听系统信息更新
+    document.addEventListener('session_info', (e) => {
+        if (e.detail.session_id === sessionId) {
+            updateSystemInfo(e.detail.info);
+            showToast('系统信息已更新', 'success');
+        }
+    });
+
+    document.addEventListener('command_error', (e) => {
+        const d = e.detail || {};
+        if (d.session_id !== sessionId) return;
+        const msg = d.error || '会话不可用';
+        appendOutput('× ' + msg, 'error');
+        showToast(msg, 'error');
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadSessionInfo();
+        terminalInput.focus();
+        setInterval(loadSessionInfo, 12000);
+    });
+</script>
+{% endblock %}

