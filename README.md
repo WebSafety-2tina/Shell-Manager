@@ -17,13 +17,19 @@
 
 ### 界面预览
 
+> 下图使用仓库内文件的直链，在 GitHub 网页与本地克隆中均可显示。若你 Fork 了本仓库，请将下方链接中的 `WebSafety-2tina/Shell-Manager` 换成你的 `用户名/仓库名`。
+
 **登录页**
 
-![Shell Manager 登录页](png/1.png)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/WebSafety-2tina/Shell-Manager/main/png/1.png" alt="Shell Manager 登录页" width="640" />
+</p>
 
 **控制台首页（仪表盘）**
 
-![Shell Manager 控制台首页](png/2.png)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/WebSafety-2tina/Shell-Manager/main/png/2.png" alt="Shell Manager 控制台首页" width="640" />
+</p>
 
 ---
 
